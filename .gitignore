@@ -1,0 +1,13 @@
+# config local do agente
+.claude/
+
+# arquivos gerados pelos rigs de teste (recriados com os scripts make-*.js)
+shot*.html
+sheet.html
+zoom*.html
+*.png
+
+# scripts de depuração descartáveis
+jumpdbg.js
+diag*.js
+check.js
