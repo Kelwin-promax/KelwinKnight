@@ -3,6 +3,9 @@
 
 # arquivos gerados pelos rigs de teste (recriados com os scripts make-*.js)
 shot*.html
+rlshot*.html
+rlplay.html
+rlzoom.html
 sheet.html
 zoom*.html
 *.png
