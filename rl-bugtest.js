@@ -8,7 +8,8 @@ const { load, makeChecker } = require('./rl-stub');
 
 const g = load();
 const { D, press, releaseAll, step, DT } = g;
-const { S, p, TILE, FLOOR, ATK_RANGE, ATK_ARC, ATK_DMG, DASH_SPEED, spawnEnemy, solidAt, lineOfSight } = D;
+const { S, p, TILE, FLOOR, ATK_RANGE, ATK_ARC, ATK_DMG, DASH_SPEED, spawnEnemy, solidAt, lineOfSight,
+        BLOCK_SPEED, BLOCK_REDUCE } = D;
 const { check, state } = makeChecker();
 
 const SEED = 4242;
@@ -228,6 +229,117 @@ console.log('\n=== dash concede invencibilidade ===');
   const hp1 = p.hp;
   for (let f = 0; f < 8; f++) { releaseAll(); step(); e2.x = p.x + 18; e2.y = p.y; }
   check('sem dash o mesmo encosto machuca (controle)', p.hp < hp1, `${hp1} -> ${p.hp}`);
+}
+
+// ------------------------------------------------------- defesa
+console.log('\n=== a guarda corta o dano que vem de frente ===');
+{
+  // Encosto pela DIREITA com a mira para a direita: o golpe entra no arco.
+  boot(0);
+  S.enemies.length = 0;
+  p.invuln = 0;
+  const e = spawnEnemy('grunt', p.x + 20, p.y, 1);
+  S.enemies.push(e);
+  const hp0 = p.hp;
+  for (let f = 0; f < 6; f++) {
+    releaseAll(); press('k');            // segura a guarda
+    p.aim = 0;                            // mirando para a direita
+    step();
+    e.x = p.x + 18; e.y = p.y; e.touchCd = 0;
+  }
+  const dmgDefendido = hp0 - p.hp;
+
+  // Controle: mesmo encosto, sem guarda.
+  boot(0);
+  S.enemies.length = 0;
+  p.invuln = 0;
+  const e2 = spawnEnemy('grunt', p.x + 20, p.y, 1);
+  S.enemies.push(e2);
+  const hp1 = p.hp;
+  for (let f = 0; f < 6; f++) {
+    releaseAll();
+    p.aim = 0;
+    step();
+    e2.x = p.x + 18; e2.y = p.y; e2.touchCd = 0;
+  }
+  const dmgLivre = hp1 - p.hp;
+
+  check('sem guarda o encosto machuca (controle)', dmgLivre > 0, dmgLivre + ' de dano');
+  check('de guarda o mesmo encosto machuca menos', dmgDefendido < dmgLivre,
+    dmgLivre + ' -> ' + dmgDefendido + ' de dano');
+  check('a reducao bate com BLOCK_REDUCE', dmgDefendido === Math.max(1, Math.round(dmgLivre * (1 - BLOCK_REDUCE))),
+    'esperado ' + Math.max(1, Math.round(dmgLivre * (1 - BLOCK_REDUCE))) + ', veio ' + dmgDefendido);
+}
+
+console.log('\n=== a guarda nao protege as costas ===');
+{
+  // Encosto pela DIREITA, mas mirando para a ESQUERDA: fora do arco.
+  boot(0);
+  S.enemies.length = 0;
+  p.invuln = 0;
+  const e = spawnEnemy('grunt', p.x + 20, p.y, 1);
+  S.enemies.push(e);
+  const hp0 = p.hp;
+  for (let f = 0; f < 6; f++) {
+    releaseAll(); press('k');
+    p.aim = Math.PI;                      // de costas para o inimigo
+    step();
+    e.x = p.x + 18; e.y = p.y; e.touchCd = 0;
+  }
+  const dmgCostas = hp0 - p.hp;
+
+  boot(0);
+  S.enemies.length = 0;
+  p.invuln = 0;
+  const e2 = spawnEnemy('grunt', p.x + 20, p.y, 1);
+  S.enemies.push(e2);
+  const hp1 = p.hp;
+  for (let f = 0; f < 6; f++) {
+    releaseAll();
+    p.aim = Math.PI;
+    step();
+    e2.x = p.x + 18; e2.y = p.y; e2.touchCd = 0;
+  }
+  const dmgLivre = hp1 - p.hp;
+
+  check('golpe nas costas passa inteiro pela guarda', dmgCostas === dmgLivre,
+    'de costas ' + dmgCostas + ', sem guarda ' + dmgLivre);
+}
+
+console.log('\n=== a guarda custa mobilidade e acao ===');
+{
+  boot(0);
+  S.enemies.length = 0;
+  for (let f = 0; f < 30; f++) { releaseAll(); press('k'); press('d'); step(); }
+  const vGuarda = Math.hypot(p.vx, p.vy);
+
+  boot(0);
+  S.enemies.length = 0;
+  for (let f = 0; f < 30; f++) { releaseAll(); press('d'); step(); }
+  const vLivre = Math.hypot(p.vx, p.vy);
+
+  check('de guarda anda mais devagar', vGuarda < vLivre,
+    vLivre.toFixed(0) + ' -> ' + vGuarda.toFixed(0) + ' px/s');
+  check('a velocidade de guarda bate com BLOCK_SPEED',
+    Math.abs(vGuarda / vLivre - BLOCK_SPEED) < .06,
+    'razao ' + (vGuarda / vLivre).toFixed(2) + ', esperado ' + BLOCK_SPEED);
+
+  // nao ataca de guarda
+  boot(0);
+  S.enemies.length = 0;
+  const e = spawnEnemy('grunt', p.x + 30, p.y, 1);
+  e.hp = 1e9; e.maxHp = 1e9;
+  S.enemies.push(e);
+  const hpAlvo = e.hp;
+  for (let f = 0; f < 20; f++) { releaseAll(); press('k'); press('j'); p.aim = 0; step(); }
+  check('segurando a guarda o ataque nao sai', e.hp === hpAlvo, 'alvo intacto');
+
+  // nao dasha de guarda
+  boot(0);
+  S.enemies.length = 0;
+  releaseAll(); press('k'); press('shift'); press('d');
+  step();
+  check('segurando a guarda o dash nao sai', p.dash <= 0, 'dash=' + p.dash.toFixed(2));
 }
 
 console.log(state.failures ? `\n${state.failures} FALHA(S)` : '\nTODOS OS TESTES PASSARAM');

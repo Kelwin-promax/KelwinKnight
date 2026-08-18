@@ -239,7 +239,8 @@
   <div class="legend">
     <div><em>Mover</em><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>setas</kbd></div>
     <div><em>Dash</em><kbd>Shift</kbd><kbd>L</kbd></div>
-    <div><em>Atacar</em><kbd>J</kbd><kbd>K</kbd><kbd>clique</kbd></div>
+    <div><em>Atacar</em><kbd>J</kbd><kbd>Z</kbd><kbd>clique esq.</kbd></div>
+    <div><em>Defender</em><kbd>K</kbd><kbd>Q</kbd><kbd>clique dir.</kbd></div>
     <div><em>Pausa</em><kbd>P</kbd></div>
   </div>
 </div>
@@ -284,6 +285,10 @@ const DASH_SPEED = 992, DASH_TIME = .16, DASH_CD = .9;
 // ATK_RANGE e abertura ATK_ARC centrados na direção de mira.
 const ATK_WINDUP = 0, ATK_ACTIVE = .10, ATK_RECOVER = .16;
 const ATK_RANGE = 83, ATK_ARC = Math.PI * .85, ATK_DMG = 26, ATK_KB = 480;
+// Defesa: segurar reduz o dano que vem DE FRENTE, em troca de mobilidade. O
+// arco e de 180 graus para que virar as costas ao inimigo seja o erro punido,
+// e nao mirar com precisao de pixel -- a mira ja e o eixo do ataque.
+const BLOCK_SPEED = .45, BLOCK_REDUCE = .65, BLOCK_ARC = Math.PI, BLOCK_KB = .35;
 
 // Tipos de inimigo. `agg` do andar multiplica velocidade e dano.
 // `r` é a PEGADA de colisão, não o tamanho do desenho: o sprite tem 64px de
@@ -349,7 +354,7 @@ const S = {
 const p = {
   x:0, y:0, vx:0, vy:0, r:21, facing:1,
   aim:0,                                   // ângulo de mira, em radianos
-  hp:100, maxHp:100,
+  hp:100, maxHp:100, block:false, blockT:0, blockHit:0, hurtT:0,
   dash:0, dashCd:0, dashAng:0, invuln:0,
   atkPhase:'none', atkT:0, atkCd:0, hitSet:null,
   trail:[]
@@ -776,12 +781,222 @@ function tinted(src, col) {
   return cv2;
 }
 
+// ---------------------------------------------------------------- arte do jogador
+// Sprite do jogador vindo de uma folha de referência, transcrito para dados de
+// pixel + paleta em vez de um PNG embutido. Motivo: o projeto é arquivo único
+// sem assets, e o stub dos testes (rl-stub.js) não tem `Image` — um data URI
+// exigiria carregamento assíncrono e quebraria as três suítes.
+// '.' é transparente; cada outro símbolo indexa `pal`.
+const PLAYER_ART = {
+  w:55, h:71,
+  pal:['#d59014','#e4e3e3','#773e0e','#2c0425','#d16767','#9c3b3b','#6d0523','#ffaa6d','#6b213a','#77360e','#8e7873','#450014','#c47412','#b9afaa','#5a5567','#ad1524','#520013','#59301b','#350523','#521526','#3f1931'],
+  rows:[
+    '................................111....................',
+    '2222222........................11111...................',
+    '.2222222222....................111111..................',
+    '..222222222222................1111111..................',
+    '...2222222222222...........11111111113.................',
+    '.....22222222222222.......111113111313.................',
+    '.......222222222222222...1111113331333.................',
+    '..........22222222222222.111113443333..................',
+    '............2222222222222313355677534..................',
+    '...............222222222236535686554...................',
+    '.................2222222276568888857...................',
+    '....................222255766588886....................',
+    '.....................9aaa5776688676222.................',
+    '...................bbbbcda77775888722222...............',
+    '..................beebbbcd755887777cc222222............',
+    '.................bbebbbbbaa58888577caff2222222.........',
+    '................bbbbbbbbbcd75888557ccfff222222.........',
+    '................bbbbbbbbbcdg775557g7cafff22224444......',
+    '...............cbbbbbbbbbadggggggggggafff2224cc4c4.....',
+    '..............dddcbbbbbbcaagggggggggggcff2224cc4c4c....',
+    '.............dccddcbbbbcadcggggggggggg7ff4224c4444c....',
+    '.............c58cddccccadcgggggggggggggcfa.c444444c4...',
+    '..............8858cddddacggggggggggggggaa4.44ccc444444.',
+    '..............555888855hhggggggg7777ggh445.c44cc4.44444',
+    '..............58588888hhh77gg777777777h555ccc444....444',
+    '..............88588885hhhh7777777ggg777554cccccc.......',
+    '.............58858855.hhhh77777gggggg7h5944cccc........',
+    '.............5888558....h777gg7ggg7gg7h9544cccc........',
+    '............cccccc58.....7777g7gg777g755544cccc........',
+    '...........ccccccccc.....hh777777g7g7h555444cc.........',
+    '...........cccccccccc....hhh777ggggggc559544cc.........',
+    '............ciiiicccc.....777g7ggg7ggc.5554444.........',
+    '............ciiiiicc.....iiiiiiigg7g7cc.554444.........',
+    '.............iiiiiii.....ciiiiiiibbbccc....44..........',
+    '.............iiiiii.....cc4ddiiiibbbcc4................',
+    '.............iiiiiic....cddddddaibbbc4a................',
+    '.............iiiiccc....dddddddaaccc4aaa...............',
+    '.............cccciicc..cdaddddddac44aaaa...............',
+    '.............cciiiicc.addadddddddcaaaaca...............',
+    '.............ciiiiicc.cddaddddddacaaaaca...............',
+    '..............iiiicic.cddadddddaacaaaaca...............',
+    '..............iicic...cddaddddaacacaaaca...............',
+    '...............ccc....cddaddaddacacaacaa...............',
+    '......................adddaadddcaaacacaa...............',
+    '......................aadddadddcaaacaca................',
+    '......................aaaaaaddaaaaaccca................',
+    '......................aaaddaadcaaaccaac................',
+    '......................aaddddad.aacacaa.................',
+    '......................aaddddac.aaca4ff.................',
+    '.....................aaadddda..aaaafff.................',
+    '.....................acbbbaac...aa4fff.................',
+    '....................aacbbbba....aa4fff.................',
+    '....................aacbbbba....aa4fff.................',
+    '..................jjaabbbbbc...aaa4ff..................',
+    '.................jjjacbbbbb..4aaaca44..................',
+    '.................jjjjjcbbb..444444444..................',
+    '.................kkjjjjjjj..444444444..................',
+    '.................kkkjjjjjj..44lll4ll...................',
+    '.................kkkjkkkj...4lll44l....................',
+    '.................kkkjkkk....4lll4l.....................',
+    '.................kkjkkjj....llll4l.....................',
+    '................kkkjkjj......ll4ll.....................',
+    '................kkkjkjj......ll4ll.....................',
+    '................kkkjkk.......ll4ll.....................',
+    '................kkjkk........ll4ll.....................',
+    '...............kkkjk.........44444.....................',
+    '...............kkkjk.........4444444...................',
+    '.............jjjjkkk........44lll4llll.................',
+    '............kkkkkjkj........44lll4lllll................',
+    '...........jkkkkkjjj........44lll44llll................',
+    '...........jjkkkjjj....................................'
+  ]
+};
+
+// A moldura procedural do resto do elenco é 16x26 células a 4px (64x104). Esta
+// arte é 55x71 pixels lógicos, proporção diferente, então ela NÃO usa PX: é
+// escalada para casar a altura de 104px de todo mundo. Assim a proporção com os
+// inimigos, a câmera e o balanceamento continuam os de antes.
+const PLAYER_H = 104;
+const PLAYER_PAD = 4;                              // folga para bob e passada
+const PLAYER_SC = PLAYER_H / PLAYER_ART.h;
+
+// A referencia tem UMA pose parada. O ciclo de passo e sintetizado dela: da
+// linha PLAYER_LEG_TOP para baixo cada linha do desenho tem exatamente duas
+// corridas de pixel (as duas pernas), verificado no arquivo. Deslocando uma
+// para frente e outra para tras, e levantando a da frente, sai uma passada de
+// verdade em vez do bob que estava ali antes.
+//
+// Isto e um SUBSTITUTO. Quando a folha com as 10 frames de ANDA entrar, so o
+// banco de quadros muda: ANIMS e o seletor de estado continuam iguais.
+const PLAYER_LEG_TOP = 47;
+
+// bob   = corpo inteiro sobe/desce
+// split = perna traseira recua e dianteira avanca (em pixels logicos)
+// lift  = quanto a perna dianteira levanta do chao
+// lean  = tronco inclina para frente/tras
+const POSES = {
+  idle:   { bob: 0, split:  0, lift: 0, lean:  0 },
+  walkA:  { bob:-2, split:  7, lift: 2, lean:  1 },
+  walkB:  { bob: 0, split:  2, lift: 0, lean:  0 },
+  walkC:  { bob:-2, split: -7, lift: 2, lean:  1 },
+  walkD:  { bob: 0, split:  2, lift: 0, lean:  0 },
+  attack: { bob: 0, split:  4, lift: 0, lean:  2 },
+  block:  { bob: 1, split:  2, lift: 0, lean: -2 },
+  hurt:   { bob:-1, split: -2, lift: 0, lean: -3 }
+};
+
+// Onde as duas pernas se separam em cada linha, medido no proprio desenho.
+// Sem isto o deslocamento teria de chutar um x fixo e cortaria a perna errada
+// nas linhas em que elas se aproximam.
+function legSplitPoints(A) {
+  const out = [];
+  for (let ly = 0; ly < A.h; ly++) {
+    const row = A.rows[ly];
+    if (ly < PLAYER_LEG_TOP) { out.push(-1); continue; }
+    const runs = [];
+    let st = -1;
+    for (let x = 0; x <= A.w; x++) {
+      const on = x < A.w && row[x] !== '.';
+      if (on && st < 0) st = x;
+      else if (!on && st >= 0) { runs.push([st, x - 1]); st = -1; }
+    }
+    // so vale quando ha exatamente duas pernas para separar
+    out.push(runs.length === 2 ? (runs[0][1] + runs[1][0]) / 2 : -1);
+  }
+  return out;
+}
+const PLAYER_SPLITS = legSplitPoints(PLAYER_ART);
+
+function makePlayerSprite(pose) {
+  const A = PLAYER_ART;
+  const P = POSES[pose] || POSES.idle;
+  const cv2 = document.createElement('canvas');
+  cv2.width = Math.round(A.w * PLAYER_SC) + PLAYER_PAD * 2;
+  cv2.height = PLAYER_H + PLAYER_PAD * 2;
+  const g = cv2.getContext('2d');
+
+  for (let ly = 0; ly < A.h; ly++) {
+    const split = PLAYER_SPLITS[ly];
+    const isLeg = split >= 0;
+    const row = A.rows[ly];
+    let lx = 0;
+    while (lx < A.w) {
+      const ch = row[lx];
+      if (ch === '.') { lx++; continue; }
+      let run = 1;
+      while (lx + run < A.w && row[lx + run] === ch) run++;   // junta o corrido
+
+      // Deslocamento desta corrida. Uma corrida colorida nunca cruza o vao
+      // entre as pernas, entao basta olhar onde ela comeca.
+      let dx = 0, dy = P.bob;
+      if (isLeg) {
+        const tras = lx < split;
+        dx = tras ? -P.split / 2 : P.split / 2;
+        if (!tras && P.lift) dy -= P.lift;                    // dianteira levanta
+      } else {
+        // tronco: quanto mais alto, mais inclina
+        dx = P.lean * (1 - ly / PLAYER_LEG_TOP);
+      }
+
+      const x0 = Math.round((lx + dx) * PLAYER_SC) + PLAYER_PAD;
+      const x1 = Math.round((lx + run + dx) * PLAYER_SC) + PLAYER_PAD;
+      const y0 = Math.round((ly + dy) * PLAYER_SC) + PLAYER_PAD;
+      const y1 = Math.round((ly + 1 + dy) * PLAYER_SC) + PLAYER_PAD;
+      g.fillStyle = A.pal[ch.charCodeAt(0) > 57 ? ch.charCodeAt(0) - 88 : ch.charCodeAt(0) - 49];
+      g.fillRect(x0, y0, x1 - x0, y1 - y0);
+      lx += run;
+    }
+  }
+  return cv2;
+}
+
+// Tabela de animacao. `frames` indexa PLAYER_FRAMES; `fps` 0 e pose fixa.
+// E aqui que a folha real entra: trocar a lista de quadros e o fps de cada
+// estado, sem mexer no seletor nem no desenho.
+const ANIMS = {
+  idle:   { frames:['idle'],                          fps: 0 },
+  walk:   { frames:['walkA','walkB','walkC','walkD'], fps: 10 },
+  attack: { frames:['attack'],                        fps: 0 },
+  block:  { frames:['block'],                         fps: 0 },
+  hurt:   { frames:['hurt'],                          fps: 0 }
+};
+
+// Prioridade: machucado > ataque > guarda > andando > parado. Sem a ordem
+// explicita, levar um golpe enquanto anda mostraria a passada e o hit sumiria.
+function playerAnim() {
+  if (p.hurtT > 0) return 'hurt';
+  if (p.atkPhase !== 'none') return 'attack';
+  if (p.block) return 'block';
+  if (Math.hypot(p.vx, p.vy) > 12) return 'walk';
+  return 'idle';
+}
+
 const SPRITES = {};
 function buildSprites() {
   for (const k in SPECS) {
     const frames = [0, 1, 2].map(f => makeSprite(SPECS[k], f));
     SPRITES[k] = { frames, flash: tinted(frames[0], '#FFFFFF'), spec: SPECS[k] };
   }
+  // o jogador vem da folha de referência, não do pintor paramétrico
+  const bank = {};
+  for (const k in POSES) bank[k] = makePlayerSprite(k);
+  SPRITES.player = {
+    frames: [bank.idle], bank,
+    flash: tinted(bank.idle, '#FFFFFF'), spec: SPECS.player
+  };
 }
 
 // O halo escuro é o que mantém os sprites legíveis contra o chão de pedra.
@@ -793,6 +1008,25 @@ function drawActorSprite(type, frame, x, y, facing, flash) {
   const dx = Math.round(x - img.width / 2);
   // os pés ficam um pouco ABAIXO do centro da pegada, senão a figura parece
   // flutuar. A folga é proporcional à altura, para valer em qualquer moldura.
+  const dy = Math.round(y - img.height * .85);
+  ctx.save();
+  ctx.shadowColor = 'rgba(4,2,8,.95)';
+  ctx.shadowBlur = 7;
+  if (facing < 0) { ctx.translate(dx + img.width, dy); ctx.scale(-1, 1); }
+  else ctx.translate(dx, dy);
+  ctx.drawImage(img, 0, 0);
+  ctx.shadowBlur = 0;
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+// Desenha uma pose nomeada do banco do jogador. Espelha o mesmo enquadramento
+// de drawActorSprite para que sombra, barra de vida e halo continuem batendo.
+function drawPlayerPose(pose, x, y, facing) {
+  const S2 = SPRITES.player;
+  const img = (S2 && S2.bank && S2.bank[pose]) || (S2 && S2.frames[0]);
+  if (!img) return;
+  const dx = Math.round(x - img.width / 2);
   const dy = Math.round(y - img.height * .85);
   ctx.save();
   ctx.shadowColor = 'rgba(4,2,8,.95)';
@@ -1028,7 +1262,7 @@ const once = Object.create(null);
 const KEYMAP = {
   left:['a','arrowleft'], right:['d','arrowright'],
   up:['w','arrowup'], down:['s','arrowdown'],
-  dash:['shift','l'], attack:['j','k','z']
+  dash:['shift','l'], attack:['j','z'], block:['k','q']
 };
 const down = a => a.some(k => keys[k]);
 const pressed = a => a.some(k => once[k]);
@@ -1056,8 +1290,14 @@ cv.addEventListener('mousemove', e => {
   };
 });
 cv.addEventListener('mouseleave', () => { mouseWorld = null; });
-cv.addEventListener('mousedown', e => { e.preventDefault(); cv.focus(); once['j'] = true; keys['j'] = true; });
-addEventListener('mouseup', () => { keys['j'] = false; });
+cv.addEventListener('mousedown', e => {
+  e.preventDefault(); cv.focus();
+  // botao direito segura a guarda; esquerdo ataca
+  if (e.button === 2) { keys['k'] = true; return; }
+  once['j'] = true; keys['j'] = true;
+});
+addEventListener('mouseup', e => { if (e && e.button === 2) keys['k'] = false; else keys['j'] = false; });
+cv.addEventListener('contextmenu', e => e.preventDefault());
 
 // ---------------------------------------------------------------- setup
 function startRun(seed) {
@@ -1130,8 +1370,15 @@ function updatePlayer(dt) {
   }
   if (Math.cos(p.aim) !== 0 && p.atkPhase === 'none') p.facing = Math.cos(p.aim) >= 0 ? 1 : -1;
 
+  // Defesa: so entra parado de guarda, nunca no meio de um dash ou golpe. E um
+  // ESTADO mantido (segurar), nao um toque, entao usa down() e nao pressed().
+  p.block = down(KEYMAP.block) && p.dash <= 0 && p.atkPhase === 'none';
+  p.blockT = p.block ? p.blockT + dt : 0;
+  p.blockHit = Math.max(0, p.blockHit - dt);
+  p.hurtT = Math.max(0, p.hurtT - dt);
+
   // dash
-  if (pressed(KEYMAP.dash) && p.dashCd <= 0 && p.dash <= 0) {
+  if (!p.block && pressed(KEYMAP.dash) && p.dashCd <= 0 && p.dash <= 0) {
     p.dash = DASH_TIME; p.dashCd = DASH_CD;
     p.dashAng = (ix || iy) ? Math.atan2(iy, ix) : p.aim;
     p.invuln = Math.max(p.invuln, DASH_TIME + .06);
@@ -1146,10 +1393,11 @@ function updatePlayer(dt) {
   } else if (ix || iy) {
     // normaliza a diagonal, senão andar na diagonal é ~41% mais rápido
     const len = Math.hypot(ix, iy);
-    p.vx += (ix / len) * MOVE_ACCEL * dt;
-    p.vy += (iy / len) * MOVE_ACCEL * dt;
-    const sp = Math.hypot(p.vx, p.vy);
-    if (sp > MAX_SPEED) { p.vx = p.vx / sp * MAX_SPEED; p.vy = p.vy / sp * MAX_SPEED; }
+    const mul = p.block ? BLOCK_SPEED : 1;
+    p.vx += (ix / len) * MOVE_ACCEL * mul * dt;
+    p.vy += (iy / len) * MOVE_ACCEL * mul * dt;
+    const cap = MAX_SPEED * mul, sp = Math.hypot(p.vx, p.vy);
+    if (sp > cap) { p.vx = p.vx / sp * cap; p.vy = p.vy / sp * cap; }
   } else {
     const f = FRICTION * dt, sp = Math.hypot(p.vx, p.vy);
     if (sp <= f) { p.vx = 0; p.vy = 0; }
@@ -1157,7 +1405,7 @@ function updatePlayer(dt) {
   }
 
   // ataque
-  if (pressed(KEYMAP.attack) && p.atkPhase === 'none' && p.atkCd <= 0) {
+  if (!p.block && pressed(KEYMAP.attack) && p.atkPhase === 'none' && p.atkCd <= 0) {
     p.atkPhase = 'windup'; p.atkT = ATK_WINDUP; p.hitSet = new Set();
   }
   if (p.atkPhase !== 'none') {
@@ -1242,16 +1490,32 @@ function sweepEnemies() {
 function hurtPlayer(dmg, fromAng, ignoreInvuln) {
   if (p.hp <= 0) return;
   if (!ignoreInvuln && p.invuln > 0) return;
+
+  // `fromAng` aponta para ONDE o jogador e empurrado, ou seja, para longe de
+  // quem bateu -- entao quem bateu esta em fromAng + PI. A guarda vale se a
+  // mira estiver dentro do arco em volta dessa direcao. Golpe sem direcao
+  // (null) nao da para aparar: nao ha de onde.
+  let blocked = false;
+  if (p.block && fromAng !== null) {
+    blocked = Math.abs(angDiff(fromAng + Math.PI, p.aim)) < BLOCK_ARC / 2;
+  }
+  if (blocked) {
+    dmg = Math.max(1, Math.round(dmg * (1 - BLOCK_REDUCE)));
+    p.blockHit = .18;
+  }
+
   p.hp -= dmg;
   S.stats.dmg += dmg;
+  p.hurtT = blocked ? .10 : .22;
   p.invuln = .85;
-  S.shake = Math.max(S.shake, 10);
-  S.flash = .25;
+  S.shake = Math.max(S.shake, blocked ? 4 : 10);
+  S.flash = blocked ? .08 : .25;
   if (fromAng !== null) {
-    p.vx = Math.cos(fromAng) * 260;
-    p.vy = Math.sin(fromAng) * 260;
+    const kb = blocked ? 260 * BLOCK_KB : 260;
+    p.vx = Math.cos(fromAng) * kb;
+    p.vy = Math.sin(fromAng) * kb;
   }
-  burst(p.x, p.y, 12, COL.ember, 240);
+  burst(p.x, p.y, blocked ? 7 : 12, blocked ? COL.cyan : COL.ember, blocked ? 150 : 240);
   if (p.hp <= 0) {
     p.hp = 0;
     burst(p.x, p.y, 30, COL.ink, 300);
@@ -1514,31 +1778,67 @@ function drawPlayer() {
 
   const blink = p.invuln > 0 && Math.floor(S.time * 22) % 2 === 0;
   if (!blink) {
-    drawActorSprite('player', walkFrame(moving, 0), p.x, p.y, p.facing, false);
+    const A = ANIMS[playerAnim()];
+    const idx = A.fps ? Math.floor(S.time * A.fps) % A.frames.length : 0;
+    drawPlayerPose(A.frames[idx], p.x, p.y, p.facing);
   }
 
-  // espada: durante 'active' ela varre o arco; parada, descansa ao lado
-  let ang = p.aim;
-  if (p.atkPhase === 'active') {
-    const t = 1 - clamp(p.atkT / ATK_ACTIVE, 0, 1);
-    ang = p.aim - ATK_ARC / 2 + ATK_ARC * t;
-  } else if (p.atkPhase === 'windup') {
-    ang = p.aim - ATK_ARC / 2;
-  } else {
-    ang = p.aim + .5;
-  }
-  // a mão fica na altura do peito, não no centro da pegada
+  // A espada faz parte do sprite e não gira com a mira, então o corte é o ÚNICO
+  // sinal de para onde o golpe saiu. Por isso ele é mais forte do que era
+  // quando havia uma lâmina girando junto: rastro largo e escuro por baixo,
+  // fio claro por cima, os dois varrendo o arco de verdade.
   const handY = p.y - 34;
-  const hx = p.x + Math.cos(ang) * 14, hy = handY + Math.sin(ang) * 14;
-  drawSword(hx, hy, ang);
+
+  // Guarda: arco de escudo cobrindo BLOCK_ARC em volta da mira. PROVISORIO --
+  // sai quando as frames de DEFENDE da folha entrarem no lugar. Ate la e o
+  // unico sinal de que a guarda esta ativa, e o arco desenhado e exatamente o
+  // mesmo que hurtPlayer testa, entao o que se ve e o que protege.
+  if (p.block) {
+    const a0 = p.aim - BLOCK_ARC / 2, a1 = p.aim + BLOCK_ARC / 2;
+    const hit = p.blockHit > 0 ? p.blockHit / .18 : 0;
+    ctx.save();
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = `rgba(20,26,40,.55)`;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.arc(p.x, handY, 40, a0, a1);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(90,209,200,${(.5 + hit * .5).toFixed(3)})`;
+    ctx.lineWidth = 3 + hit * 4;
+    ctx.beginPath();
+    ctx.arc(p.x, handY, 40, a0, a1);
+    ctx.stroke();
+    if (hit > 0) {                                  // clarao curto ao aparar
+      ctx.strokeStyle = `rgba(255,255,255,${(hit * .8).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, handY, 46, a0, a1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   if (p.atkPhase === 'active') {
     const t = 1 - clamp(p.atkT / ATK_ACTIVE, 0, 1);
-    ctx.strokeStyle = `rgba(233,226,212,${(.5 * (1 - t)).toFixed(3)})`;
-    ctx.lineWidth = 4;
+    const a0 = p.aim - ATK_ARC / 2, a1 = a0 + ATK_ARC * t;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(28,36,52,${(.45 * (1 - t)).toFixed(3)})`;
+    ctx.lineWidth = 13;
     ctx.beginPath();
-    ctx.arc(p.x, handY, ATK_RANGE * .8, p.aim - ATK_ARC/2, p.aim - ATK_ARC/2 + ATK_ARC * t);
+    ctx.arc(p.x, handY, ATK_RANGE * .78, a0, a1);
     ctx.stroke();
+    ctx.strokeStyle = `rgba(233,226,212,${(.92 * (1 - t)).toFixed(3)})`;
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.arc(p.x, handY, ATK_RANGE * .82, a0, a1);
+    ctx.stroke();
+    // ponta do fio: dá a leitura de onde a lâmina está AGORA
+    ctx.fillStyle = `rgba(255,248,236,${(.9 * (1 - t)).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(a1) * ATK_RANGE * .82, handY + Math.sin(a1) * ATK_RANGE * .82, 4.5, 0, TAU);
+    ctx.fill();
+    ctx.restore();
   }
 }
 

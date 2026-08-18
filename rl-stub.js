@@ -14,7 +14,8 @@ const ANCHOR = 'cv.focus();\nrequestAnimationFrame(frame);';
 const HOOK = `globalThis.__DBG = {
   S, p, FLOORS, TYPES, BOSS, TILE, WALL, FLOOR,
   genDungeon, reachable, solidAt, lineOfSight, startRun, loadFloor, spawnEnemy,
-  ATK_RANGE, ATK_ARC, ATK_DMG, DASH_CD, DASH_TIME, DASH_SPEED, MAX_SPEED
+  ATK_RANGE, ATK_ARC, ATK_DMG, DASH_CD, DASH_TIME, DASH_SPEED, MAX_SPEED,
+  BLOCK_SPEED, BLOCK_REDUCE, BLOCK_ARC, hurtPlayer
 };
 `;
 
@@ -90,7 +91,7 @@ function load() {
   const keyDown = k => (globalListeners.keydown || []).forEach(fn => fn({ key: k, preventDefault() {} }));
   const keyUp = k => (globalListeners.keyup || []).forEach(fn => fn({ key: k, preventDefault() {} }));
 
-  const ALL_KEYS = ['a', 'd', 'w', 's', 'shift', 'j'];
+  const ALL_KEYS = ['a', 'd', 'w', 's', 'shift', 'j', 'k', 'q', 'z', 'l'];
   const held = new Set();
   const press = k => { if (!held.has(k)) { held.add(k); keyDown(k); } };
   const release = k => { if (held.has(k)) { held.delete(k); keyUp(k); } };
