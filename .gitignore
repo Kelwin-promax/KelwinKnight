@@ -1,16 +1,5 @@
-# config local do agente
-.claude/
-
-# arquivos gerados pelos rigs de teste (recriados com os scripts make-*.js)
-shot*.html
-rlshot*.html
-rlplay.html
-rlzoom.html
-sheet.html
-zoom*.html
-*.png
-
-# scripts de depuração descartáveis
-jumpdbg.js
-diag*.js
-check.js
+# Godot 4
+.godot/
+/android/
+export_presets.cfg
+*.translation

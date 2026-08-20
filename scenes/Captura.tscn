@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ckelwinknightcap"]
+
+[ext_resource type="Script" path="res://tests/capture.gd" id="1_c"]
+
+[node name="Captura" type="Node"]
+script = ExtResource("1_c")
