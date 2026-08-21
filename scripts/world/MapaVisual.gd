@@ -4,6 +4,10 @@ extends Node2D
 ## Desenha a planta do Submundo uma vez so. O mapa nao muda durante a run,
 ## entao `_draw` roda uma vez e o Godot reaproveita a lista de comandos.
 
+const FUNDO_SUBMUNDO := preload("res://assets/Submundo.png")
+const TILE_SHEET := preload("res://assets/tilesheet_submundo.svg")
+const TILE_SHEET_TILE := 48
+
 var dungeon: Dungeon
 var _rng := RandomNumberGenerator.new()
 
@@ -16,20 +20,30 @@ func _draw() -> void:
 	if dungeon == null:
 		return
 	var T := float(Dungeon.TILE)
+	var tamanho := dungeon.tamanho_px()
+	draw_texture_rect(FUNDO_SUBMUNDO, Rect2(Vector2.ZERO, tamanho), false)
 
 	for y in range(dungeon.altura):
 		for x in range(dungeon.largura):
 			var px := float(x) * T
 			var py := float(y) * T
 			if dungeon.solido(x, y):
+				_desenhar_tile(px, py, 2, 0, 0.34)
 				_parede(x, y, px, py, T)
 			else:
+				_desenhar_tile(px, py, 0 if (x + y) % 2 == 0 else 1, 0, 0.28)
 				_chao(x, y, px, py, T)
+
+func _desenhar_tile(px: float, py: float, coluna: int, linha: int, opacidade: float) -> void:
+	var origem := Rect2(coluna * TILE_SHEET_TILE, linha * TILE_SHEET_TILE,
+			TILE_SHEET_TILE, TILE_SHEET_TILE)
+	draw_texture_rect_region(TILE_SHEET, Rect2(px, py, Dungeon.TILE, Dungeon.TILE), origem,
+			Color(1.0, 1.0, 1.0, opacidade))
 
 func _chao(x: int, y: int, px: float, py: float, T: float) -> void:
 	# xadrez sutil: da escala sem virar tabuleiro
 	var base := Palette.CHAO if ((x + y) % 2 == 0) else Palette.CHAO_ALT
-	draw_rect(Rect2(px, py, T, T), base)
+	draw_rect(Rect2(px, py, T, T), Color(base.r, base.g, base.b, 0.18))
 
 	# sujeira determinista - o mesmo tile suja sempre igual
 	var h := _hash(x, y)
@@ -55,28 +69,28 @@ func _chao(x: int, y: int, px: float, py: float, T: float) -> void:
 func _parede(x: int, y: int, px: float, py: float, T: float) -> void:
 	# Sem chao em volta? E rocha macica, nao precisa de detalhe.
 	if not _toca_chao(x, y):
-		draw_rect(Rect2(px, py, T, T), Palette.VAZIO)
+		draw_rect(Rect2(px, py, T, T), Color(0.015, 0.008, 0.02, 0.62))
 		return
 
-	draw_rect(Rect2(px, py, T, T), Palette.PEDRA)
+	draw_rect(Rect2(px, py, T, T), Color(0.10, 0.025, 0.10, 0.46))
 
 	# A face virada para o jogador e a unica superficie que pega luz aqui.
 	# Ela ocupa metade do tile: e o que da altura a pedra em 3/4.
 	if not dungeon.solido(x, y + 1):
 		var alt := T * 0.5
-		draw_rect(Rect2(px, py + T - alt, T, alt), Palette.PEDRA_TOPO)
+		draw_rect(Rect2(px, py + T - alt, T, alt), Color(0.18, 0.04, 0.12, 0.36))
 		# juntas de cantaria na face
-		draw_rect(Rect2(px, py + T - alt, T, 2.0), Palette.sombra(Palette.PEDRA_TOPO, 0.55))
+		draw_rect(Rect2(px, py + T - alt, T, 2.0), Color(0.03, 0.01, 0.03, 0.50))
 		var h2 := _hash(x, y)
 		draw_rect(Rect2(px + float(h2 % 3) * 12.0 + 10.0, py + T - alt + 2.0, 2.0, alt - 2.0),
-				Palette.sombra(Palette.PEDRA_TOPO, 0.62))
+				Color(0.03, 0.01, 0.03, 0.42))
 		# base preta: separa a pedra do chao sem ambiguidade
 		draw_rect(Rect2(px, py + T - 3.0, T, 3.0), Palette.CONTORNO)
 
 	var h := _hash(x, y)
 	if h % 5 == 0:
 		draw_rect(Rect2(px + float(h % 24), py + float((h / 5) % 24), 6.0, 4.0),
-				Palette.sombra(Palette.PEDRA, 0.72))
+				Color(0.02, 0.005, 0.02, 0.38))
 
 func _toca_chao(x: int, y: int) -> bool:
 	for dy in range(-1, 2):

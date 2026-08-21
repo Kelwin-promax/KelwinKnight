@@ -164,7 +164,7 @@ invoca Guerra e morre para ele — tirando foto em cada etapa. Não use
 
 Foi ele que encontrou os dois piores problemas desta demo, que nenhum teste de
 unidade pegaria: o mapa original de 84×60 tiles deixava o jogador andando ~3
-minutos entre encontros com 15 monstros vivos (hoje 64×46, o menor tamanho que
+minutos entre encontros com 15 monstros vivos (hoje 128×92, o dobro do tamanho que
 ainda cabe as 15-20 salas do §9 em 200 sementes), e a mira era roubada por um
 mouse parado, o que fazia o golpe sair na direção errada para quem joga só de
 teclado.

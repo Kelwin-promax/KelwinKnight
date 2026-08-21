@@ -27,9 +27,9 @@ func _gerar() -> void:
 	# 9 pede 15-20 salas. O tamanho do mapa e o que decide se isso vira um
 	# Submundo apertado ou um corredor vazio: com 84x60 o bot de playtest
 	# levou 3 minutos para achar e matar UM monstro, com 15 vivos no mapa.
-	# 64x46 e o menor tamanho que ainda cabe 15-20 salas em 200 sementes.
-	largura = 64
-	altura = 46
+	# 128x92 dobra a area do mapa mantendo a mesma escala de tiles.
+	largura = 128
+	altura = 92
 	tiles = PackedByteArray()
 	tiles.resize(largura * altura)
 	tiles.fill(PAREDE)

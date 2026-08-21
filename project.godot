@@ -1,5 +1,10 @@
-; KelwinKnight - Parte 1: Submundo (demo)
-; Godot 4.7 / GDScript
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -20,16 +25,14 @@ GameState="*res://scripts/core/GameState.gd"
 window/size/viewport_width=960
 window/size/viewport_height=540
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-textures/canvas_textures/default_texture_filter=0
-environment/defaults/default_clear_color=Color(0.043, 0.035, 0.043, 1)
 
 [physics]
 
-common/physics_ticks_per_second=60
 2d/default_gravity=0.0
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.043, 0.035, 0.043, 1)
