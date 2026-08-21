@@ -16,10 +16,26 @@ const CAMINHO_PNG := "res://assets/sprites/jogador.png"
 const CAMINHO_JSON := "res://assets/sprites/jogador.json"
 
 ## Altura do boneco em pixels de mundo, medida no boneco MAIS ALTO da folha.
-## O desenho por codigo tinha ~104px; ficar perto disso preserva a relacao com
-## o mapa e com o alcance dos golpes, que e medido em pixels
-## (ATK_LEVE.alcance = 46).
-const ALTURA_ALVO := 106.0
+##
+## O numero sai do Figura.jogador(), que e o desenho por codigo que a folha
+## substitui: tronco em ty=-22, cabeca em cy=ty-10 com 11 de altura, mais o
+## contorno de PX - do pe ao topo da cabeca da ~35px. Ficar nessa altura e o
+## que mantem tres relacoes de pe:
+##
+##   - o tile tem 48px e os corredores 2 tiles (96px): um boneco de 35px anda
+##     por eles; um de 106px e mais alto que a largura do corredor.
+##   - ATK_LEVE.alcance = 46 (7.2): o golpe alcanca 1.3x a altura do corpo.
+##     Com 106px o soco nao passaria do joelho do proprio jogador.
+##   - a pose 'parado' da folha tem 102x242, entao nesta altura o corpo fica
+##     com ~17px de largura. E esse numero, nao a altura, que Player.RAIO tem
+##     de acompanhar para a hitbox coincidir com o desenho.
+##
+## Casar a ALTURA com o boneco de codigo e casar a LARGURA sao coisas
+## diferentes: o desenho por codigo e atarracado (30px de largura para 35 de
+## altura) e a folha e um humano de verdade (2.4:1). Quem manda aqui e a
+## altura, porque e ela que se compara com o tile e com os monstros; a
+## largura entra depois, pelo RAIO.
+const ALTURA_ALVO := 40.0
 
 ## Encosta o pe na sombra. A caixa e apertada no pixel, entao o acerto e fino.
 const AJUSTE_Y := 3.0

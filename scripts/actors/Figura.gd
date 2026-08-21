@@ -77,11 +77,13 @@ static func criatura(ci: CanvasItem, dados: Dictionary, mira: Vector2, t: float,
 
 	# 7.7: ponto de exclamacao no alerta, interrogacao na busca
 	if alerta == 1:
-		_marca_alerta(ci, ty - cab_h - 14.0, Palette.ALERTA, true)
+		marca_alerta(ci, ty - cab_h - 14.0, Palette.ALERTA, true)
 	elif alerta == 2:
-		_marca_alerta(ci, ty - cab_h - 14.0, Palette.BUSCA, false)
+		marca_alerta(ci, ty - cab_h - 14.0, Palette.BUSCA, false)
 
-static func _marca_alerta(ci: CanvasItem, y: float, cor: Color, exclamacao: bool) -> void:
+## 7.7: o ! da perseguicao e o ? da busca. Publica porque o Enemy tambem a
+## chama quando desenha pela folha de sprites em vez de pelo Figura.criatura().
+static func marca_alerta(ci: CanvasItem, y: float, cor: Color, exclamacao: bool) -> void:
 	if exclamacao:
 		_bloco_c(ci, -PX * 0.5, y, PX, 7.0, cor)
 		_bloco_c(ci, -PX * 0.5, y + 9.0, PX, PX, cor)

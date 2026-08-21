@@ -291,11 +291,44 @@ func pode_consumir() -> bool:
 	return morto and not consumido
 
 # ------------------------------------------------------------------ desenho
+## Qual pose da folha corresponde ao estado de agora.
+##
+## A ordem segue a mesma escala de prioridade do jogador: primeiro o que tirou o
+## controle do monstro (morrer, apanhar), depois o que ele escolheu fazer
+## (atacar), e so no fim o deslocamento.
+func _anim_atual() -> Array:
+	if morto:
+		return ["morto", 0.0]
+	if estado == ATORDOADO:
+		return ["dano", 0.0]
+	if _atacando:
+		# um progresso so, cobrindo telegrafo e impacto: assim a garra sobe
+		# durante o windup e desce no quadro em que o dano sai.
+		var total := WINDUP + IMPACTO
+		return ["atacar", clampf(_t_ataque / total, 0.0, 1.0)]
+	if vel.length() > 8.0:
+		return ["andar", 0.0]
+	return ["parado", 0.0]
+
+## A folha manda quando existe; sem ela o bicho volta a ser desenhado por
+## codigo e o jogo segue igual.
+func _desenhar_corpo() -> bool:
+	if not SpriteCriatura.disponivel(String(dados["id"])):
+		return false
+	# a sombra vem antes do corpo, senao ela pinta por cima do bicho
+	Figura.sombra(self, raio)
+	var porte := float(dados.get("porte", 1.0))
+	var an := _anim_atual()
+	var lado := signf(mira.x) if absf(mira.x) > 0.05 else 1.0
+	return SpriteCriatura.desenhar(self, String(dados["id"]), String(an[0]), _t,
+			float(an[1]), lado, SpriteCriatura.ALTURA_BASE * porte)
+
 func _draw() -> void:
 	if morto:
-		Figura.cadaver(self, dados, 1.0 if not consumido else 0.0)
-		if not consumido:
-			return
+		# O cadaver da folha e um quadro proprio (a ultima pose da banda de
+		# morte); sem folha, cai no borrao de sangue do Figura.
+		if not _desenhar_corpo():
+			Figura.cadaver(self, dados, 1.0 if not consumido else 0.0)
 		return
 
 	var marca := 0
@@ -308,7 +341,16 @@ func _draw() -> void:
 	if estado == PASSIVO or estado == ALERTA or estado == BUSCA:
 		_desenhar_cone()
 
-	Figura.criatura(self, dados, mira, _t, fase_ataque(), marca)
+	if not _desenhar_corpo():
+		Figura.criatura(self, dados, mira, _t, fase_ataque(), marca)
+	else:
+		# 7.7: com a folha no lugar do boneco, o ! e o ? do alerta continuam
+		# precisando aparecer - e sinal de leitura, nao enfeite.
+		var topo := -SpriteCriatura.ALTURA_BASE * float(dados.get("porte", 1.0))
+		if marca == 1:
+			Figura.marca_alerta(self, topo - 16.0, Palette.ALERTA, true)
+		elif marca == 2:
+			Figura.marca_alerta(self, topo - 16.0, Palette.BUSCA, false)
 
 	if telegrafo() > 0.0:
 		var r := 26.0 + 16.0 * telegrafo()

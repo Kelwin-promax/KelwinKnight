@@ -9,7 +9,14 @@ signal morreu()
 signal desmaiou(duracao: float)
 signal acao_relevante(texto: String, cor: Color)
 
-const RAIO := 12.0
+## Meia-largura da pegada de colisao. Acompanha a LARGURA do corpo desenhado,
+## nao a altura: na altura de SpriteJogador.ALTURA_ALVO a pose 'parado' da
+## folha ocupa ~17px, entao 9 poe a caixa de 18px debaixo do corpo. O 12
+## antigo vinha do boneco atarracado do Figura.jogador(), de 30px de largura,
+## e deixava o jogador esbarrando na pedra com o tornozelo enquanto o tronco
+## atravessava a parede. So o Dungeon.mover() le isto - nenhuma conta de
+## combate depende dele.
+const RAIO := 9.0
 const ACEL := 1500.0
 const VEL_MAX := 168.0
 const ATRITO := 1400.0
@@ -445,7 +452,8 @@ func _draw() -> void:
 	var an := _anim_atual()
 
 	if SpriteJogador.disponivel():
-		Figura.sombra(self, 11.0)
+		# a sombra marca a pegada, entao segue o RAIO e nao o boneco de codigo
+		Figura.sombra(self, RAIO)
 		SpriteJogador.desenhar(self, String(an[0]), _t, float(an[1]), lado, rot, desloc)
 	else:
 		if _caido > 0.0:

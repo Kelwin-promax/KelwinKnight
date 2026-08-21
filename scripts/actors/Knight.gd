@@ -231,6 +231,31 @@ func fase_ataque() -> float:
 	return 0.0
 
 # ------------------------------------------------------------------ desenho
+## Qual pose da folha corresponde ao estado de agora. Os dois padroes do 5 tem
+## quadro proprio: o golpe em arco e a investida.
+func _anim_atual() -> Array:
+	if morto:
+		return ["morto", 0.0]
+	match estado:
+		GOLPE:
+			return ["atacar", clampf(_t_estado / (TELEGRAFO_GOLPE + DURACAO_GOLPE), 0.0, 1.0)]
+		INVESTIDA:
+			return ["investida", clampf(_t_estado
+					/ (TELEGRAFO_INVESTIDA + DURACAO_INVESTIDA), 0.0, 1.0)]
+		PERSEGUE:
+			return ["andar", 0.0]
+	return ["parado", 0.0]
+
+## A folha manda quando existe; sem ela o Cavaleiro volta ao desenho por codigo.
+func _desenhar_corpo() -> bool:
+	if not SpriteCriatura.disponivel(String(dados["id"])):
+		return false
+	Figura.sombra(self, raio)
+	var an := _anim_atual()
+	var lado := signf(mira.x) if absf(mira.x) > 0.05 else 1.0
+	return SpriteCriatura.desenhar(self, String(dados["id"]), String(an[0]), _t,
+			float(an[1]), lado, SpriteCriatura.ALTURA_CAVALEIRO)
+
 func _draw() -> void:
 	if morto:
 		_desenhar_cadaver()
@@ -248,7 +273,8 @@ func _draw() -> void:
 		])
 		draw_colored_polygon(pts, Color(Palette.ALERTA.r, Palette.ALERTA.g, Palette.ALERTA.b, 0.10 + 0.16 * f))
 
-	Figura.cavaleiro(self, dados, mira, _t, fase_ataque(), telegrafo())
+	if not _desenhar_corpo():
+		Figura.cavaleiro(self, dados, mira, _t, fase_ataque(), telegrafo())
 
 	if _flash > 0.0:
 		draw_circle(Vector2(0, -30), 34.0, Color(1, 1, 1, 0.26 * _flash))
@@ -258,8 +284,12 @@ func _draw() -> void:
 func _desenhar_cadaver() -> void:
 	var cor: Color = dados.get("cor", Palette.SANGUE)
 	draw_circle(Vector2(0, 2), 38.0, Color(Palette.SANGUE.r, Palette.SANGUE.g, Palette.SANGUE.b, 0.45))
-	draw_rect(Rect2(-26, -14, 52, 18), Palette.CONTORNO)
-	draw_rect(Rect2(-23, -11, 46, 12), Palette.sombra(cor, 0.55))
+	# O corpo sai da folha quando ela existe - a poca de sangue, a espada e o
+	# relogio de 30s ficam por cima dele de qualquer jeito, porque sao a leitura
+	# da janela de inspecao do 5, nao enfeite.
+	if not _desenhar_corpo():
+		draw_rect(Rect2(-26, -14, 52, 18), Palette.CONTORNO)
+		draw_rect(Rect2(-23, -11, 46, 12), Palette.sombra(cor, 0.55))
 	# a Espada Colossal cravada no chao, esperando
 	if not arma_coletada:
 		draw_line(Vector2(16, 6), Vector2(24, -56), Palette.CONTORNO, 12.0)

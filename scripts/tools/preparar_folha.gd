@@ -2,15 +2,37 @@ extends SceneTree
 
 ## Prepara folhas de sprite: tira o fundo, acha cada boneco e grava as medidas.
 ##
-## Duas decisoes valem explicacao.
+## As 14 folhas do projeto NAO seguem uma convencao so. Elas foram desenhadas
+## separadamente e usam tres fundos diferentes:
 ##
-## 1. O fundo sai por INUNDACAO a partir das bordas, nao por "toda cor parecida
-##    com o fundo vira transparente". A camisa do jogador e um cinza escuro a
-##    distancia 27 do verde do fundo, dentro de qualquer tolerancia util - um
-##    filtro global comeria o tronco. A inundacao so alcanca o que esta ligado
-##    a borda, entao o interior do corpo esta a salvo por construcao.
+##   - chapado, com as poses em linhas soltas  (Jogador, Rastejador, Carniceiro,
+##     Fome, Guerra)
+##   - celulas emolduradas sobre um painel     (Vigia, Morte, Regenerador,
+##     Ambutcher, Furioso, Aterrorizador, Toxoplasma)
+##   - xadrez de transparencia                 (Conquista, Pele Veloz)
 ##
-## 2. As celulas NAO formam uma grade regular. Estas folhas sao desenhadas, nao
+## Por isso a limpeza tem tres estagios, cada um resolvendo um desses casos.
+## Um estagio so nao da conta, e rodar todos em toda folha estraga as que ja
+## estavam boas - dai as travas de JA_BOM/BOM_BASTA.
+##
+## 1. INUNDACAO a partir das bordas, nao "toda cor parecida com o fundo vira
+##    transparente". A camisa do jogador e um cinza escuro a distancia 27 do
+##    verde do fundo - um filtro global comeria o tronco. A inundacao so alcanca
+##    o que esta ligado a borda, entao o interior do corpo esta a salvo por
+##    construcao.
+##
+## 2. CORES CHAPADAS DOMINANTES, para o que a inundacao nao alcanca: o painel
+##    dentro de uma celula emoldurada e o xadrez de transparencia sao ilhas,
+##    cercadas pela moldura. Cada uma e uma cor so ocupando uma fatia grande do
+##    que sobrou; o bicho e pixel art sombreada e nenhuma cor dele chega perto
+##    dessa fatia.
+##
+## 3. COMPONENTES OCOS: a moldura da celula. Ela preenche so o proprio perimetro
+##    - menos de 10% da caixa que ocupa, contra 30-60% de um boneco. Sem tirar a
+##    moldura, ela ligaria a linha inteira e a projecao de colunas devolveria uma
+##    figura so, do tamanho da fila.
+##
+## 4. As celulas NAO formam uma grade regular. Estas folhas sao desenhadas, nao
 ##    geradas por ferramenta de tileset: o salto do dash, por exemplo, atravessa
 ##    a fronteira de duas celulas de 200px. Fatiar em 4x5 fixo cortaria o boneco
 ##    ao meio. Entao cada figura e achada pela propria silhueta, por projecao de
@@ -23,12 +45,51 @@ const PASTA := "res://assets/sprites"
 
 ## Distancia maxima por canal ate a cor do fundo para a inundacao seguir.
 ## O JPEG suja o fundo chapado, entao exigir igualdade exata nao funciona.
-const TOL := 38
+##
+## 48, e nao 38: as folhas dos monstros tem vinheta, e o centro do painel fica a
+## distancia 43 do canto quase preto. Com 38 sobrava uma ilha de fundo no meio,
+## que encostava nos bichos e fundia a folha inteira num blob de 1335x629.
+const TOL := 48
 ## Bandas/figuras menores que isto sao ruido de compressao, nao boneco.
 const MIN_ALTURA_BANDA := 24
 const MIN_LARGURA_FIG := 16
 ## Fatia de baixo da figura usada para achar o centro dos pes.
 const FAIXA_PES := 0.12
+
+# --------------------------------------------------- estagio 2: cor chapada
+## Tolerancia ao apagar uma cor chapada dominante.
+const TOL_CHAPADO := 18
+## So vale apagar uma cor que cubra esta fatia do que sobrou.
+const MIN_FRACAO := 0.04
+const MAX_PASSES := 6
+## Quantizacao do histograma que acha a cor dominante.
+const QUANT := 8
+## Folha que a inundacao ja limpou ate aqui dispensa o estagio 2 - rodar assim
+## mesmo comeria os cinzas da roupa do jogador e quebraria as bandas dele.
+const JA_BOM := 0.82
+## ...e o estagio 2 para assim que chega aqui.
+const BOM_BASTA := 0.88
+
+# ------------------------------------- estagio 3: componentes que nao sao bicho
+## Abaixo desta fracao da propria caixa, o componente e moldura, nao boneco.
+const MIN_PREENCH := 0.10
+## Caixa menor que isto nem e testada para moldura: e detalhe, nao moldura.
+const MIN_CAIXA := 60
+
+## NAO existe filtro de "componente pequeno = letra" aqui, e a tentacao e
+## grande: varias folhas tem rotulo escrito dentro da banda dos bonecos ("GOLPE
+## DE OSSO", na do Carniceiro), e recorte e retangulo, entao a palavra viaja
+## junto para dentro do jogo.
+##
+## Nao funciona. Pixel art salva em JPEG chega aqui cheia de pedaco solto:
+## perna que descolou do corpo, olho, ponta de cauda, respingo. Apagar todo
+## componente de ate ~36px apagou 2350 pedacos na folha do Aterrorizador e
+## derrubou a altura tipica do Guerra de 106px para 67px - o filtro comia o
+## bicho, nao o rotulo. Rotulo dentro da banda fica; quem escolhe a figura
+## limpa e a tabela do SpriteCriatura.ANIMS.
+
+## Banda mais baixa que esta fracao da mais alta e rotulo escrito, nao pose.
+const FRACAO_BANDA_UTIL := 0.45
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -70,6 +131,11 @@ func _preparar(nome: String) -> void:
 	print("folha: %d x %d" % [w, h])
 
 	_remover_fundo(d, w, h)
+	_remover_chapados(d, w, h)
+	var molduras := _remover_molduras(d, w, h)
+	if molduras > 0:
+		print("molduras de celula removidas: %d" % molduras)
+	print("limpo no total: %.1f%%" % (100.0 * _fracao_vazia(d, w, h)))
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, d)
 
 	var base := nome.to_lower()
@@ -89,9 +155,25 @@ func _preparar(nome: String) -> void:
 	img_dbg.save_png(ProjectSettings.globalize_path("%s/_conferir_%s.png" % [PASTA, base]))
 
 	# ------------------------------------------------------- achar os bonecos
-	var bandas := _bandas(d, w, h)
+	# Toda folha tem rotulo escrito ("Idle", "Running Cycle", o nome do bicho).
+	# Texto sobrevive a limpeza - ele nao e fundo. Mas cai numa banda propria,
+	# muito mais baixa que a dos bonecos, entao some por altura.
+	var todas := _bandas(d, w, h)
+	var mais_alta := 0
+	for b in todas:
+		mais_alta = maxi(mais_alta, (b as Vector2i).y - (b as Vector2i).x + 1)
+	var bandas := []
+	for b in todas:
+		var bv: Vector2i = b
+		if float(bv.y - bv.x + 1) >= FRACAO_BANDA_UTIL * float(mais_alta):
+			bandas.append(bv)
+		else:
+			print("  banda de texto descartada (y %d..%d, %d px)" % [bv.x, bv.y,
+					bv.y - bv.x + 1])
+
 	var saida := {"textura": "%s/%s.png" % [PASTA, base], "bandas": []}
 	var altura_ref := 0
+	var alturas := PackedInt32Array()
 
 	for bi in range(bandas.size()):
 		var b: Vector2i = bandas[bi]
@@ -101,6 +183,7 @@ func _preparar(nome: String) -> void:
 		for fg in figs:
 			var r: Rect2i = fg
 			altura_ref = maxi(altura_ref, r.size.y)
+			alturas.append(r.size.y)
 			var ax := _centro_dos_pes(d, w, r)
 			lista.append({"x": r.position.x, "y": r.position.y,
 					"w": r.size.x, "h": r.size.y, "ax": ax})
@@ -110,7 +193,19 @@ func _preparar(nome: String) -> void:
 				figs.size(), ", ".join(desc)])
 
 	saida["altura_ref"] = altura_ref
-	print("  altura de referencia (boneco mais alto): %d px" % altura_ref)
+	# A MEDIANA, e nao o maximo, e o que serve de regua para escalar o bicho no
+	# jogo. Uma deteccao fundida - duas figuras que se encostaram e viraram uma -
+	# infla o maximo e encolhe o bicho inteiro na tela: na folha do
+	# Aterrorizador um blob de 188px punha todo o resto a 70% do tamanho certo.
+	# A mediana nao se move por um outlier. `altura_ref` fica gravado do mesmo
+	# jeito porque o SpriteJogador foi calibrado contra ele.
+	alturas.sort()
+	var tipica := altura_ref
+	if alturas.size() > 0:
+		tipica = alturas[alturas.size() / 2]
+	saida["altura_tipica"] = tipica
+	print("  altura de referencia: %d px (mais alto)  ·  %d px (tipica)"
+			% [altura_ref, tipica])
 
 	var jf := FileAccess.open("%s/%s.json" % [PASTA, base], FileAccess.WRITE)
 	jf.store_string(JSON.stringify(saida, "\t"))
@@ -166,6 +261,108 @@ func _semear(d: PackedByteArray, visto: PackedByteArray, fila: PackedInt32Array,
 	visto[i] = 1
 	fila.append(i)
 
+# ------------------------------------------------ estagio 2: cores chapadas
+func _fracao_vazia(d: PackedByteArray, w: int, h: int) -> float:
+	var vazios := 0
+	for j in range(w * h):
+		if d[j * 4 + 3] == 0:
+			vazios += 1
+	return float(vazios) / float(w * h)
+
+## Apaga, uma por vez, a cor dominante que sobrou - enquanto ela for chapada o
+## bastante para ser painel de celula ou xadrez, e nunca corpo de boneco.
+func _remover_chapados(d: PackedByteArray, w: int, h: int) -> void:
+	if _fracao_vazia(d, w, h) >= JA_BOM:
+		return
+	for passo in range(MAX_PASSES):
+		if _fracao_vazia(d, w, h) >= BOM_BASTA:
+			return
+		var hist := {}
+		var vivos := 0
+		for j in range(w * h):
+			var b := j * 4
+			if d[b + 3] == 0:
+				continue
+			vivos += 1
+			var k := (int(d[b]) / QUANT) * 65536 + (int(d[b + 1]) / QUANT) * 256 \
+					+ (int(d[b + 2]) / QUANT)
+			hist[k] = int(hist.get(k, 0)) + 1
+		if vivos == 0:
+			return
+		var melhor := -1
+		var melhor_n := 0
+		for k in hist:
+			if int(hist[k]) > melhor_n:
+				melhor_n = int(hist[k])
+				melhor = int(k)
+		if melhor < 0 or float(melhor_n) < MIN_FRACAO * float(vivos):
+			return
+		var cr := (melhor / 65536) * QUANT + QUANT / 2
+		var cg := ((melhor / 256) % 256) * QUANT + QUANT / 2
+		var cb := (melhor % 256) * QUANT + QUANT / 2
+		var apagados := 0
+		for j in range(w * h):
+			var b := j * 4
+			if d[b + 3] == 0:
+				continue
+			if absi(int(d[b]) - cr) <= TOL_CHAPADO \
+					and absi(int(d[b + 1]) - cg) <= TOL_CHAPADO \
+					and absi(int(d[b + 2]) - cb) <= TOL_CHAPADO:
+				d[b + 3] = 0
+				apagados += 1
+		print("  cor chapada rgb(%d, %d, %d): %.1f%% da folha" % [cr, cg, cb,
+				100.0 * float(apagados) / float(w * h)])
+		if apagados == 0:
+			return
+
+# ------------------------------------------------ estagio 3: componente oco
+## Apaga os componentes vazados - as molduras das celulas.
+func _remover_molduras(d: PackedByteArray, w: int, h: int) -> int:
+	var visto := PackedByteArray()
+	visto.resize(w * h)
+	var removidos := 0
+	for j0 in range(w * h):
+		if d[j0 * 4 + 3] == 0 or visto[j0] == 1:
+			continue
+		var fila := PackedInt32Array([j0])
+		visto[j0] = 1
+		var membros := PackedInt32Array()
+		var minx := w
+		var maxx := -1
+		var miny := h
+		var maxy := -1
+		var qi := 0
+		while qi < fila.size():
+			var idx := fila[qi]
+			qi += 1
+			membros.append(idx)
+			var x := idx % w
+			var y := idx / w
+			if x < minx: minx = x
+			if x > maxx: maxx = x
+			if y < miny: miny = y
+			if y > maxy: maxy = y
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var nx := x + dx
+					var ny := y + dy
+					if nx < 0 or ny < 0 or nx >= w or ny >= h:
+						continue
+					var nj := ny * w + nx
+					if visto[nj] == 0 and d[nj * 4 + 3] > 0:
+						visto[nj] = 1
+						fila.append(nj)
+		var bw := maxx - minx + 1
+		var bh := maxy - miny + 1
+		if bw < MIN_CAIXA or bh < MIN_CAIXA:
+			continue
+		# moldura: retangulo vazado, preenche so o proprio perimetro
+		if float(membros.size()) < MIN_PREENCH * float(bw) * float(bh):
+			for m in membros:
+				d[m * 4 + 3] = 0
+			removidos += 1
+	return removidos
+
 # ----------------------------------------------------------------- deteccao
 ## Faixas horizontais com pixel opaco, separadas por vao vazio.
 func _bandas(d: PackedByteArray, w: int, h: int) -> Array:
@@ -201,11 +398,70 @@ func _figuras(d: PackedByteArray, w: int, y0: int, y1: int) -> Array:
 			ini = x
 		elif not tem and ini >= 0:
 			if x - ini >= MIN_LARGURA_FIG:
-				out.append(_apertar(d, w, ini, x - 1, y0, y1))
+				out.append(_aparar_moldura(d, w, _apertar(d, w, ini, x - 1, y0, y1)))
 			ini = -1
 	if ini >= 0 and w - ini >= MIN_LARGURA_FIG:
-		out.append(_apertar(d, w, ini, w - 1, y0, y1))
+		out.append(_aparar_moldura(d, w, _apertar(d, w, ini, w - 1, y0, y1)))
 	return out
+
+## Corta a borda da moldura quando ela encosta no boneco.
+##
+## O estagio 3 so apaga molduras que ficaram soltas. Na folha do Ambutcher o
+## boneco pisa na base da celula, entao moldura e boneco viram um componente so,
+## com preenchimento alto - e a moldura sobrevive, emoldurando o monstro dentro
+## do jogo. Aqui ela sai pela outra ponta: uma linha de moldura preenche quase
+## toda a largura da caixa e tem vazio logo atras; nenhuma parte de um boneco
+## faz isso.
+const BORDA_CHEIA := 0.80
+const BORDA_VAZIA := 0.30
+const MAX_APARO := 4
+
+func _aparar_moldura(d: PackedByteArray, w: int, r: Rect2i) -> Rect2i:
+	var cx := r.position.x
+	var cy := r.position.y
+	var cw := r.size.x
+	var ch := r.size.y
+	for lado in range(4):
+		for i in range(MAX_APARO):
+			if cw < 8 or ch < 8:
+				break
+			var cheia := 0.0
+			var atras := 0.0
+			match lado:
+				0:  # topo
+					cheia = _densidade_linha(d, w, cx, cw, cy)
+					atras = _densidade_linha(d, w, cx, cw, cy + 1)
+				1:  # base
+					cheia = _densidade_linha(d, w, cx, cw, cy + ch - 1)
+					atras = _densidade_linha(d, w, cx, cw, cy + ch - 2)
+				2:  # esquerda
+					cheia = _densidade_coluna(d, w, cy, ch, cx)
+					atras = _densidade_coluna(d, w, cy, ch, cx + 1)
+				_:  # direita
+					cheia = _densidade_coluna(d, w, cy, ch, cx + cw - 1)
+					atras = _densidade_coluna(d, w, cy, ch, cx + cw - 2)
+			if cheia < BORDA_CHEIA or atras > BORDA_VAZIA:
+				break
+			match lado:
+				0: cy += 1; ch -= 1
+				1: ch -= 1
+				2: cx += 1; cw -= 1
+				_: cw -= 1
+	return Rect2i(cx, cy, cw, ch)
+
+func _densidade_linha(d: PackedByteArray, w: int, x0: int, larg: int, y: int) -> float:
+	var n := 0
+	for x in range(x0, x0 + larg):
+		if d[(y * w + x) * 4 + 3] > 8:
+			n += 1
+	return float(n) / float(maxi(1, larg))
+
+func _densidade_coluna(d: PackedByteArray, w: int, y0: int, alt: int, x: int) -> float:
+	var n := 0
+	for y in range(y0, y0 + alt):
+		if d[(y * w + x) * 4 + 3] > 8:
+			n += 1
+	return float(n) / float(maxi(1, alt))
 
 func _apertar(d: PackedByteArray, w: int, x0: int, x1: int, y0: int, y1: int) -> Rect2i:
 	var miny := y1
