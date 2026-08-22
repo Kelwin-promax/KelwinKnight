@@ -15,6 +15,7 @@ const MAX_LINHAS := 5
 var _fonte: Font
 var _mostrar_status: bool = false
 var _tela_morte: bool = false
+var _t: float = 0.0
 
 func _ready() -> void:
 	_fonte = ThemeDB.fallback_font
@@ -30,6 +31,7 @@ func _registrar(texto: String, cor: Color) -> void:
 	queue_redraw()
 
 func _process(delta: float) -> void:
+	_t += delta
 	for l in _linhas:
 		l["idade"] += delta
 	while _linhas.size() > 0 and float(_linhas[0]["idade"]) > 6.0:
@@ -68,10 +70,14 @@ func _barra(x: float, y: float, w: float, h: float, f: float, cor: Color) -> voi
 	draw_rect(Rect2(x, y, w * clampf(f, 0.0, 1.0), h), cor)
 
 func _painel_esquerdo() -> void:
+	draw_rect(Rect2(7, 7, 238, 94), Palette.CONTORNO)
 	draw_rect(Rect2(8, 8, 236, 92), Palette.HUD_FUNDO)
 
-	# vida
-	_barra(16, 18, 200, 10, GameState.hp / GameState.hp_max, Palette.HUD_VIDA)
+	var hp_cor := Palette.HUD_VIDA
+	if GameState.hp / GameState.hp_max < 0.3:
+		var pulse := 0.5 + 0.5 * sin(_t * 4.0)
+		hp_cor = Color(lerpf(hp_cor.r, 1.0, pulse * 0.3), hp_cor.g, hp_cor.b)
+	_barra(16, 18, 200, 10, GameState.hp / GameState.hp_max, hp_cor)
 	_txt(Vector2(16, 42), "VIDA  %d/%d" % [int(ceil(GameState.hp)), int(GameState.hp_max)],
 			Palette.HUD_TEXTO, 12)
 
@@ -91,6 +97,7 @@ func _painel_esquerdo() -> void:
 
 func _painel_direito(tela: Vector2) -> void:
 	var x := tela.x - 244.0
+	draw_rect(Rect2(x - 1, 7, 238, 94), Palette.CONTORNO)
 	draw_rect(Rect2(x, 8, 236, 92), Palette.HUD_FUNDO)
 
 	var vivos := 0
@@ -132,7 +139,7 @@ func _menu_status(tela: Vector2) -> void:
 	var x := (tela.x - w) * 0.5
 	var y := (tela.y - h) * 0.5
 	draw_rect(Rect2(x - 2, y - 2, w + 4, h + 4), Palette.CONTORNO)
-	draw_rect(Rect2(x, y, w, h), Color(0.07, 0.06, 0.06, 0.95))
+	draw_rect(Rect2(x, y, w, h), Color(0.06, 0.04, 0.06, 0.95))
 
 	var desmaiado := jogador != null and is_instance_valid(jogador) and jogador.esta_desmaiado()
 	_txt(Vector2(x + 16, y + 26), "DESMAIADO" if desmaiado else "STATUS",
@@ -190,11 +197,14 @@ func _menu_status(tela: Vector2) -> void:
 
 # ------------------------------------------------------------------- morte
 func _morte(tela: Vector2) -> void:
-	draw_rect(Rect2(0, 0, tela.x, tela.y), Color(0.05, 0.01, 0.01, 0.82))
+	draw_rect(Rect2(0, 0, tela.x, tela.y), Color(0.04, 0.01, 0.03, 0.85))
 	var cx := tela.x * 0.5
 	var cy := tela.y * 0.5
+	var pulse := 0.7 + 0.3 * sin(_t * 2.0)
+	var tc := Color(Palette.SANGUE_VIVO.r * pulse, Palette.SANGUE_VIVO.g * pulse,
+			Palette.SANGUE_VIVO.b * pulse)
 	draw_string(_fonte, Vector2(cx - 120, cy - 40), "VOCÊ MORREU",
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Palette.SANGUE_VIVO)
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 30, tc)
 	# 2: morrer reseta TUDO - consumos e inventario inclusive.
 	var n := GameState.consumos_total
 	var quantos := ("o único consumo" if n == 1 else "os %d consumos" % n)

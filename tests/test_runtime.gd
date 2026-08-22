@@ -86,30 +86,30 @@ func _avancar(segundos: float, nos: Array) -> void:
 # -------------------------------------------------------------------- mapa
 func _teste_mapa() -> void:
 	var falhas_conexao := 0
-	var falhas_borda := 0
+	var falhas_abertura := 0
 	var poucas_salas := 0
 	for s in range(40):
 		var d := Dungeon.new(1000 + s * 7)
 		if d.salas.size() < 15 or d.salas.size() > 20:
 			poucas_salas += 1
-		# borda sempre solida
+		# o mapa aberto nao possui parede nem borda interna solida
 		for x in range(d.largura):
-			if not d.solido(x, 0) or not d.solido(x, d.altura - 1):
-				falhas_borda += 1
+			if d.solido(x, 0) or d.solido(x, d.altura - 1):
+				falhas_abertura += 1
 				break
 		# toda sala alcancavel a pe a partir da sala 0
 		if not _todas_alcancaveis(d):
 			falhas_conexao += 1
 
 	_afirma(poucas_salas == 0, "9: todo mapa tem de 15 a 20 salas", "%d fora da faixa" % poucas_salas)
-	_afirma(falhas_borda == 0, "a borda do mapa nunca vaza")
+	_afirma(falhas_abertura == 0, "o mapa inteiro permanece aberto")
 	_afirma(falhas_conexao == 0, "toda sala e alcancavel a pe (nenhuma ilha)",
 			"%d mapas com ilha" % falhas_conexao)
 
 	var d2 := Dungeon.new(4242)
 	var d3 := Dungeon.new(4242)
 	_afirma(d2.tiles == d3.tiles, "mesma semente gera o mesmo Submundo")
-	_afirma(Dungeon.new(1).tiles != Dungeon.new(2).tiles, "sementes diferentes geram mapas diferentes")
+	_afirma(Dungeon.new(1).tiles == Dungeon.new(2).tiles, "o plano aberto e igual em qualquer semente")
 
 func _todas_alcancaveis(d: Dungeon) -> bool:
 	var inicio: Vector2i = d.salas[0].get_center()
@@ -182,43 +182,16 @@ func _teste_percepcao() -> void:
 func _teste_parede() -> void:
 	_limpar()
 	var d := _novo_mapa(999)
-	# procura um par de pontos de chao com pedra no meio
-	# Dois pontos de chao perto um do outro, mas com pedra na reta entre eles.
-	# Centros de sala nao servem: salas sao separadas por folga, entao os
-	# centros ficam sempre longe demais para caber no alcance do cone.
-	var achou := false
-	var a := Vector2.ZERO
-	var b := Vector2.ZERO
-	for y in range(1, d.altura - 1):
-		for x in range(1, d.largura - 1):
-			if d.solido(x, y):
-				continue
-			var pa := d.centro_do_tile(x, y)
-			var saltos: Array[Vector2i] = [Vector2i(4, 0), Vector2i(0, 4),
-					Vector2i(5, 5), Vector2i(3, 3)]
-			for salto in saltos:
-				var nx: int = x + salto.x
-				var ny: int = y + salto.y
-				if nx >= d.largura - 1 or ny >= d.altura - 1 or d.solido(nx, ny):
-					continue
-				var pb := d.centro_do_tile(nx, ny)
-				if not d.linha_livre(pa, pb):
-					a = pa
-					b = pb
-					achou = true
-					break
-			if achou:
-				break
-		if achou:
-			break
-	_afirma(achou, "o mapa tem um par de salas com pedra no meio (setup do teste)")
-	if not achou:
-		return
+	var a := d.centro_do_tile(4, 4)
+	var b := d.centro_do_tile(8, 4)
+	_afirma(not d.solido(4, 4) and not d.solido(8, 4),
+			"o mapa aberto nao possui paredes")
+	_afirma(d.linha_livre(a, b), "a visao atravessa o mapa aberto")
 	var j := _novo_jogador(b)
 	var e := _novo_inimigo("vigia", a, j)
-	e.mira = (b - a).normalized()      # olhando exatamente para o jogador
+	e.mira = (b - a).normalized()
 	_avancar(1.5, [e])
-	_afirma(e.estado != Enemy.PERSEGUE, "olhando na direcao certa, mas com pedra no meio: nao ve",
+	_afirma(e.estado == Enemy.PERSEGUE, "olhando na direcao certa, ve atraves do mapa aberto",
 			"dist=%.0f" % a.distance_to(b))
 
 # ----------------------------------------------------------------- combate
@@ -438,9 +411,9 @@ func _teste_spawn() -> void:
 
 	# o teto cresce com os Cavaleiros derrubados
 	GameState.reset_run()
-	_afirma(GameState.teto_de_monstros() == 15, "teto inicial de 15 monstros")
+	_afirma(GameState.teto_de_monstros() == 30, "teto inicial de 30 monstros")
 	GameState.cavaleiros_mortos = 2
-	_afirma(GameState.teto_de_monstros() == 18, "com 2 Cavaleiros mortos o teto vai a 18")
+	_afirma(GameState.teto_de_monstros() == 33, "com 2 Cavaleiros mortos o teto vai a 33")
 
 # --------------------------------------------------------------- cavaleiro
 func _teste_cavaleiro() -> void:

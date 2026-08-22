@@ -25,13 +25,18 @@ var _fade: float = 1.0
 var _cadaver_perto: Node = null
 var _cavaleiro_perto: Knight = null
 
+var _hitstop: int = 0
+var _shake_forca: float = 0.0
+var _particulas: Array = []
+var _ambiente: Array = []
+var _t_ambiente: float = 0.0
+
 func _ready() -> void:
-	# Precisa continuar processando com a arvore pausada, senao o proprio
-	# P que pausou nunca mais e lido - e o R da tela de morte tambem nao.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_registrar_inputs()
 	randomize()
 	_semente = randi()
+	GameState.impacto.connect(_ao_impacto)
 	_montar()
 
 # --------------------------------------------------------------- montagem
@@ -75,6 +80,8 @@ func _montar() -> void:
 	jogador.add_child(camera)
 	camera.make_current()
 
+	_criar_iluminacao()
+
 	capa = CanvasLayer.new()
 	add_child(capa)
 	hud = HUD.new()
@@ -83,24 +90,39 @@ func _montar() -> void:
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	capa.add_child(hud)
 
-	# Populacao inicial. Sem isso o comeco e uma caminhada silenciosa:
-	# o spawn do 2 so entrega um monstro a cada 10s.
-	for i in range(10):
+	# Populacao inicial: o mapa ja comeca no limite atual de monstros vivos.
+	for i in range(GameState.teto_de_monstros()):
 		_nascer_monstro(false)
 
 	_t_spawn = 0.0
 	_morto = false
 	_fade = 1.0
+	_hitstop = 0
+	_shake_forca = 0.0
+	_particulas.clear()
+	_ambiente.clear()
+	_t_ambiente = 0.0
+	Engine.time_scale = 1.0
 	hud.mostrar_morte(false)
 	GameState.mensagem("Você acorda com fome.", Palette.HUD_TEXTO)
 
 func _process(delta: float) -> void:
+	if _hitstop > 0:
+		_hitstop -= 1
+		Engine.time_scale = 0.05
+	elif Engine.time_scale < 1.0 and not _pausado and not _morto:
+		Engine.time_scale = 1.0
+
+	_aplicar_shake()
+	_atualizar_particulas(delta)
+	_atualizar_ambiente(delta)
+
 	if _fade > 0.0:
 		_fade = maxf(0.0, _fade - delta * 0.7)
 		queue_redraw()
 
 	if Input.is_action_just_pressed("reiniciar") and _morto:
-		# 2: morte = reset total. Nada atravessa para a proxima run.
+		Engine.time_scale = 1.0
 		GameState.reset_run()
 		_semente = randi()
 		_montar()
@@ -122,6 +144,139 @@ func _process(delta: float) -> void:
 	_procurar_interacoes()
 	_ler_interacoes()
 
+# --------------------------------------------------------------- impacto
+func _ao_impacto(forca: float, pos: Vector2, dir: Vector2) -> void:
+	_hitstop = maxi(_hitstop, int(2.0 + forca * 4.0))
+	_shake_forca = maxf(_shake_forca, 2.0 + forca * 10.0)
+	var n := int(3.0 + forca * 6.0)
+	for i in range(n):
+		var ang := dir.angle() + randf_range(-0.9, 0.9)
+		var spd := randf_range(50.0, 160.0) * (0.6 + forca)
+		_particulas.append({
+			"p": Vector2(pos),
+			"v": Vector2(cos(ang), sin(ang)) * spd,
+			"t": randf_range(0.25, 0.55),
+			"c": Color(Palette.SANGUE.r + randf_range(0.0, 0.12),
+					Palette.SANGUE.g, Palette.SANGUE.b),
+			"r": randf_range(1.5, 3.0 + forca * 2.0),
+		})
+	queue_redraw()
+
+func _aplicar_shake() -> void:
+	if camera == null or not is_instance_valid(camera):
+		return
+	if _shake_forca > 0.3:
+		camera.offset = Vector2(
+			randf_range(-_shake_forca, _shake_forca),
+			randf_range(-_shake_forca, _shake_forca))
+		_shake_forca *= 0.78
+	else:
+		_shake_forca = 0.0
+		camera.offset = Vector2.ZERO
+
+func _atualizar_particulas(delta: float) -> void:
+	var i := _particulas.size() - 1
+	while i >= 0:
+		var p: Dictionary = _particulas[i]
+		p["t"] = float(p["t"]) - delta
+		if float(p["t"]) <= 0.0:
+			_particulas.remove_at(i)
+		else:
+			p["p"] = Vector2(p["p"]) + Vector2(p["v"]) * delta
+			p["v"] = Vector2(p["v"]) * 0.90
+		i -= 1
+	if not _particulas.is_empty():
+		queue_redraw()
+
+func _atualizar_ambiente(delta: float) -> void:
+	if jogador == null or not is_instance_valid(jogador):
+		return
+	_t_ambiente += delta
+	if _t_ambiente >= 0.15 and _ambiente.size() < 40:
+		_t_ambiente = 0.0
+		var ang := randf() * TAU
+		var dist := randf_range(40.0, 320.0)
+		var p := jogador.global_position + Vector2(cos(ang), sin(ang)) * dist
+		var tipo := randi() % 3
+		if tipo == 0:
+			_ambiente.append({
+				"p": Vector2(p), "v": Vector2(randf_range(-8, 8), randf_range(-18, -6)),
+				"t": randf_range(2.5, 5.0), "c": Color(1.0, 0.5, 0.15, 0.0),
+				"r": randf_range(1.0, 2.0), "fade_in": 0.6,
+			})
+		elif tipo == 1:
+			_ambiente.append({
+				"p": Vector2(p), "v": Vector2(randf_range(-5, 5), randf_range(-3, 3)),
+				"t": randf_range(3.0, 6.0), "c": Color(0.4, 0.3, 0.25, 0.0),
+				"r": randf_range(0.8, 1.5), "fade_in": 1.0,
+			})
+		else:
+			_ambiente.append({
+				"p": Vector2(p), "v": Vector2(randf_range(-4, 4), randf_range(-12, -4)),
+				"t": randf_range(2.0, 4.0), "c": Color(0.7, 0.15, 0.1, 0.0),
+				"r": randf_range(0.6, 1.2), "fade_in": 0.5,
+			})
+	var i := _ambiente.size() - 1
+	while i >= 0:
+		var a: Dictionary = _ambiente[i]
+		a["t"] = float(a["t"]) - delta
+		if float(a["t"]) <= 0.0:
+			_ambiente.remove_at(i)
+		else:
+			a["p"] = Vector2(a["p"]) + Vector2(a["v"]) * delta
+			a["fade_in"] = maxf(0.0, float(a["fade_in"]) - delta)
+		i -= 1
+	if not _ambiente.is_empty():
+		queue_redraw()
+
+# -------------------------------------------------------------- iluminacao
+func _criar_iluminacao() -> void:
+	var escurece := CanvasModulate.new()
+	escurece.color = Color(0.06, 0.04, 0.06)
+	add_child(escurece)
+
+	var tex := _gradiente_luz(256)
+	var luz := PointLight2D.new()
+	luz.texture = tex
+	luz.texture_scale = 5.0
+	luz.energy = 1.0
+	luz.color = Color(1.0, 0.92, 0.85)
+	jogador.add_child(luz)
+
+	var tex_peq := _gradiente_luz(64)
+	for pos in mapa._deco:
+		var d: Vector2i = mapa._deco[pos]
+		if d == MapaVisual.DECO_LAVA_CORE:
+			var lz := PointLight2D.new()
+			lz.texture = tex_peq
+			lz.texture_scale = 4.0
+			lz.energy = 0.5
+			lz.color = Color(1.0, 0.45, 0.15)
+			lz.position = Vector2(
+				float(pos.x) * float(Dungeon.TILE) + float(Dungeon.TILE) * 0.5,
+				float(pos.y) * float(Dungeon.TILE) + float(Dungeon.TILE) * 0.5)
+			mapa.add_child(lz)
+		elif d == MapaVisual.DECO_ALTAR:
+			var lz := PointLight2D.new()
+			lz.texture = tex_peq
+			lz.texture_scale = 3.0
+			lz.energy = 0.35
+			lz.color = Color(1.0, 0.6, 0.3)
+			lz.position = Vector2(
+				float(pos.x) * float(Dungeon.TILE) + float(Dungeon.TILE) * 0.5,
+				float(pos.y) * float(Dungeon.TILE) + float(Dungeon.TILE) * 0.5)
+			mapa.add_child(lz)
+
+func _gradiente_luz(tamanho: int) -> ImageTexture:
+	var img := Image.create(tamanho, tamanho, false, Image.FORMAT_RGBA8)
+	var centro := float(tamanho) * 0.5
+	for ix in range(tamanho):
+		for iy in range(tamanho):
+			var d := Vector2(float(ix) - centro, float(iy) - centro).length() / centro
+			var a := clampf(1.0 - d * d, 0.0, 1.0)
+			img.set_pixel(ix, iy, Color(a, a, a, a))
+	return ImageTexture.create_from_image(img)
+
 # ------------------------------------------------------------------ spawn
 ## 2: um monstro a cada 10s, em local aleatorio, respeitando o teto de vivos.
 func _ciclo_de_spawn(delta: float) -> void:
@@ -133,6 +288,21 @@ func _ciclo_de_spawn(delta: float) -> void:
 		return
 	_nascer_monstro(true)
 
+func _ponto_spawn_monstro() -> Vector2:
+	# Torna a zona de spawn mais agressiva perto do jogador, sem mexer no teto
+	# global de 30 monstros. O objetivo e que o jogador veja inimigos no caminho
+	# em vez de andar muito sem contato.
+	for i in range(200):
+		var ang := _rng.randf_range(0.0, TAU)
+		var dist := _rng.randf_range(80.0, 260.0)
+		var p := jogador.global_position + Vector2(cos(ang), sin(ang)) * dist
+		if dungeon.solido_em(p):
+			continue
+		if p.distance_to(jogador.global_position) < 60.0:
+			continue
+		return p
+	return dungeon.chao_aleatorio(_rng, jogador.global_position, 50.0)
+
 func _nascer_monstro(anunciar: bool) -> void:
 	# Escolhe entre as criaturas ja "liberadas": as mais duras entram
 	# conforme os Cavaleiros vao caindo.
@@ -141,7 +311,7 @@ func _nascer_monstro(anunciar: bool) -> void:
 
 	var e := CENA_INIMIGO.new()
 	e.configurar(dados, dungeon, jogador, _rng.randi())
-	e.global_position = dungeon.chao_aleatorio(_rng, jogador.global_position, 260.0)
+	e.global_position = _ponto_spawn_monstro()
 	e.morreu.connect(_ao_morrer_monstro)
 	e.add_to_group("inimigos")
 	$Atores.add_child(e)
@@ -245,12 +415,27 @@ func _ao_morrer() -> void:
 	if _morto:
 		return
 	_morto = true
+	Engine.time_scale = 1.0
+	_hitstop = 0
 	get_tree().paused = true
 	hud.mostrar_morte(true)
 	GameState.mensagem("O Submundo te engole.", Palette.SANGUE_VIVO)
 
 # ------------------------------------------------------------------ desenho
 func _draw() -> void:
+	for part in _particulas:
+		var a := clampf(float(part["t"]) * 3.0, 0.0, 1.0)
+		var c: Color = part["c"]
+		draw_circle(Vector2(part["p"]), float(part["r"]),
+				Color(c.r, c.g, c.b, a * 0.85))
+
+	for amb in _ambiente:
+		var fi := float(amb["fade_in"])
+		var vis := clampf(1.0 - fi, 0.0, 1.0) * clampf(float(amb["t"]) * 2.0, 0.0, 1.0)
+		var c: Color = amb["c"]
+		draw_circle(Vector2(amb["p"]), float(amb["r"]),
+				Color(c.r, c.g, c.b, vis * 0.45))
+
 	# vinheta de entrada
 	if _fade > 0.0:
 		var r := get_viewport_rect().size * 4.0

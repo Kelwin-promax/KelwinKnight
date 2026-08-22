@@ -31,6 +31,8 @@ var _destino_passeio: Vector2 = Vector2.INF
 var _cd_ataque: float = 0.0
 var _flash: float = 0.0
 var _instigado: float = 0.0          # 5: Autoridade de Guerra
+var _rastro: Array[Vector2] = []
+var _t_rastro: float = 0.0
 
 # --- ataque em duas fases: o telegrafo e o que torna o parry jogavel (7.3)
 var _atacando: bool = false
@@ -58,7 +60,8 @@ func configurar(p_dados: Dictionary, p_dungeon: Dungeon, p_alvo: Node2D, p_semen
 	var agg := 1.0 + 0.08 * float(GameState.cavaleiros_mortos)
 	velocidade = float(dados["vel"]) * agg
 	dano = float(dados["dano"]) * agg
-	raio = 11.0 * float(dados.get("porte", 1.0))
+	var porte := maxf(float(dados.get("porte", 1.0)), 0.5)
+	raio = 11.0 * sqrt(porte)
 	_t = rng.randf() * 6.0
 	mira = Vector2.RIGHT.rotated(rng.randf() * TAU)
 
@@ -82,6 +85,16 @@ func _process(delta: float) -> void:
 	# regenerador: a habilidade que ele concede tambem e o que ele faz
 	if String(dados["id"]) == "regen" and hp < hp_max:
 		hp = minf(hp_max, hp + 1.2 * delta)
+
+	_t_rastro += delta
+	if vel.length() > 20.0 and _t_rastro >= 0.08:
+		_t_rastro = 0.0
+		_rastro.append(global_position)
+		while _rastro.size() > 5:
+			_rastro.pop_front()
+	elif vel.length() <= 20.0 and _t_rastro >= 0.15 and not _rastro.is_empty():
+		_t_rastro = 0.0
+		_rastro.pop_front()
 
 	queue_redraw()
 
@@ -318,12 +331,23 @@ func _desenhar_corpo() -> bool:
 	# a sombra vem antes do corpo, senao ela pinta por cima do bicho
 	Figura.sombra(self, raio)
 	var porte := float(dados.get("porte", 1.0))
+	var altura := SpriteCriatura.ALTURA_BASE * porte
+	if String(dados.get("id", "")) == "carniceiro":
+		altura = SpriteJogador.ALTURA_ALVO * 4.0
+	elif String(dados.get("id", "")) == "rastejador":
+		altura = SpriteJogador.ALTURA_ALVO * 0.5
 	var an := _anim_atual()
 	var lado := signf(mira.x) if absf(mira.x) > 0.05 else 1.0
 	return SpriteCriatura.desenhar(self, String(dados["id"]), String(an[0]), _t,
-			float(an[1]), lado, SpriteCriatura.ALTURA_BASE * porte)
+			float(an[1]), lado, altura)
 
 func _draw() -> void:
+	for i in range(_rastro.size()):
+		var a := 0.12 * (float(i + 1) / maxf(float(_rastro.size()), 1.0))
+		var ofs := _rastro[i] - global_position
+		draw_circle(ofs + Vector2(0, -10), raio * 0.8,
+				Color(Palette.CONTORNO.r, Palette.CONTORNO.g, Palette.CONTORNO.b, a))
+
 	if morto:
 		# O cadaver da folha e um quadro proprio (a ultima pose da banda de
 		# morte); sem folha, cai no borrao de sangue do Figura.
@@ -346,7 +370,12 @@ func _draw() -> void:
 	else:
 		# 7.7: com a folha no lugar do boneco, o ! e o ? do alerta continuam
 		# precisando aparecer - e sinal de leitura, nao enfeite.
-		var topo := -SpriteCriatura.ALTURA_BASE * float(dados.get("porte", 1.0))
+		var altura := SpriteCriatura.ALTURA_BASE * float(dados.get("porte", 1.0))
+		if String(dados.get("id", "")) == "carniceiro":
+			altura = SpriteJogador.ALTURA_ALVO * 4.0
+		elif String(dados.get("id", "")) == "rastejador":
+			altura = SpriteJogador.ALTURA_ALVO * 0.5
+		var topo := -altura
 		if marca == 1:
 			Figura.marca_alerta(self, topo - 16.0, Palette.ALERTA, true)
 		elif marca == 2:
@@ -364,17 +393,25 @@ func _draw() -> void:
 
 func _desenhar_cone() -> void:
 	var a := mira.angle()
-	var alcance := Balance.CONE_ALCANCE * 0.42     # so o bastante para ler a direcao
-	var pts := PackedVector2Array([Vector2(0, -10)])
+	var alcance := Balance.CONE_ALCANCE * 0.42
+	var cor := Palette.ALERTA if estado == ALERTA else Palette.BUSCA
+	if estado == PASSIVO:
+		cor = Palette.HUD_FRACO
+	var alfa := 0.05 if estado == PASSIVO else 0.10
+
+	var origin := Vector2(0, -10)
+	var pts := PackedVector2Array([origin])
 	var n := 12
 	for i in range(n + 1):
 		var f := float(i) / float(n)
 		var ang := a - Balance.CONE_ANGULO + 2.0 * Balance.CONE_ANGULO * f
-		pts.append(Vector2(0, -10) + Vector2(cos(ang), sin(ang)) * alcance)
-	var cor := Palette.ALERTA if estado == ALERTA else Palette.BUSCA
-	if estado == PASSIVO:
-		cor = Palette.HUD_FRACO
-	draw_colored_polygon(pts, Color(cor.r, cor.g, cor.b, 0.07))
+		pts.append(origin + Vector2(cos(ang), sin(ang)) * alcance)
+	draw_colored_polygon(pts, Color(cor.r, cor.g, cor.b, alfa))
+
+	var esq := origin + Vector2(cos(a - Balance.CONE_ANGULO), sin(a - Balance.CONE_ANGULO)) * alcance
+	var dir := origin + Vector2(cos(a + Balance.CONE_ANGULO), sin(a + Balance.CONE_ANGULO)) * alcance
+	draw_line(origin, esq, Color(cor.r, cor.g, cor.b, alfa * 2.0), 1.5)
+	draw_line(origin, dir, Color(cor.r, cor.g, cor.b, alfa * 2.0), 1.5)
 
 func _barra_de_vida() -> void:
 	if hp >= hp_max:

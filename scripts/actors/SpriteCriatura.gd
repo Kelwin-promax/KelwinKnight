@@ -19,28 +19,23 @@ extends RefCounted
 const ARQUIVO := {
 	"rastejador": "rastejador",
 	"carniceiro": "carniceiro",
+	"peleveloz": "pele veloz",
+	"ambutcher": "ambutcher",
 	"vigia": "vigia carniça",
+	"aterror": "aterrorizador",
+	"toxoplasma": "toxoplasma",
+	"regen": "regenerador",
 	"furioso": "furioso",
 	"guerra": "guerra",
+	"conquista": "conquista",
 	"morte": "morte",
 	"fome": "fome",
 	# Sem folha utilizavel, todos continuam no desenho por codigo:
 	#
 	#   - deslizador, peste: nao tem arte nenhuma na pasta.
-	#   - toxoplasma, regen, conquista: a ferramenta acha as figuras fundidas -
-	#     dois bichos que se encostam viram uma caixa so, de 645x348.
-	#   - ambutcher: a folha dele e a unica desenhada sobre uma parede de
-	#     masmorra texturizada em vez de fundo chapado. Textura nao e uma cor
-	#     dominante, entao nem a inundacao nem o estagio 2 a tiram, e o recorte
-	#     sai com pedra e moldura em volta do monstro.
-	#   - peleveloz: a folha e desenhada sobre papel quadriculado, e as linhas
-	#     da grade ficam dentro do recorte de todo quadro.
-	#   - aterror: vermelho escuro sobre fundo escuro. Nao existe tolerancia que
-	#     resolva - em 28 so 39% do fundo sai, em 48 o bicho comeca a se
-	#     desfazer junto. Corpo e fundo ocupam a mesma faixa de cor.
 	#
 	# Nenhum deles quebra nada: o Enemy testa disponivel() e cai no
-	# Figura.criatura(), que continua desenhando os 10 do bestiario.
+	# Figura.criatura() quando a folha nao existe.
 }
 
 ## Altura em pixels de mundo para porte 1.0. Sai da mesma regua do jogador
@@ -76,9 +71,9 @@ const ANIMS := {
 	"carniceiro": {
 		"parado":  {"banda": 0, "de": 0, "ate": 2, "fps": 5.0},
 		"andar":   {"banda": 1, "de": 0, "ate": 5, "fps": 10.0},
-		# a banda 2 tem rotulo dos DOIS lados: "ATAQUE" cai dentro da fig 0 e
-		# "GOLPE DE OSSO" dentro das figs 3-4. Sobram a 1 e a 2.
-		"atacar":  {"banda": 2, "de": 1, "ate": 2, "fps": 0.0},
+		# a banda 2 contem a sequencia completa: preparacao, golpe de osso e
+		# os dois impactos finais, sem incluir os rotulos da folha.
+		"atacar":  {"banda": 2, "de": 0, "ate": 4, "fps": 0.0},
 		# a fig 1 e a pose de dano boa, mas o rotulo "DANO" cai dentro dela; a
 		# fig 3 e a mesma coisa com estrelas de atordoamento, e esta limpa.
 		"dano":    {"banda": 3, "de": 3, "ate": 3, "fps": 0.0},
@@ -100,6 +95,16 @@ const ANIMS := {
 		"atacar":  {"banda": 3, "de": 1, "ate": 7, "fps": 0.0},
 		"dano":    {"banda": 5, "de": 0, "ate": 0, "fps": 0.0},
 		"morto":   {"banda": 5, "de": 9, "ate": 9, "fps": 0.0},
+	},
+	# Walk(5) / Dash+Slash(8) / Lunge+Death(12) - a folha tem um fundo com
+	# grade e rotulos, entao usamos as faixas de corpo limpas na ordem correta.
+	"peleveloz": {
+		"parado":  {"banda": 0, "de": 0, "ate": 4, "fps": 6.0},
+		"andar":   {"banda": 0, "de": 0, "ate": 4, "fps": 12.0},
+		"atacar":  {"banda": 1, "de": 0, "ate": 3, "fps": 0.0},
+		"investida": {"banda": 1, "de": 4, "ate": 7, "fps": 0.0},
+		"dano":    {"banda": 2, "de": 0, "ate": 0, "fps": 0.0},
+		"morto":   {"banda": 2, "de": 10, "ate": 10, "fps": 0.0},
 	},
 	# Guerra: idle(8) / ataque(13) / especial(6) / investida(5) / dano+morte(9)
 	"guerra": {

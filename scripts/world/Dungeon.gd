@@ -24,15 +24,13 @@ func _gerar() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = semente
 
-	# 9 pede 15-20 salas. O tamanho do mapa e o que decide se isso vira um
-	# Submundo apertado ou um corredor vazio: com 84x60 o bot de playtest
-	# levou 3 minutos para achar e matar UM monstro, com 15 vivos no mapa.
-	# 128x92 dobra a area do mapa mantendo a mesma escala de tiles.
+	# 9: mapa aberto, sem paredes nem corredores. As salas continuam sendo
+	# pontos de referencia para distribuicao de entidades.
 	largura = 128
 	altura = 92
 	tiles = PackedByteArray()
 	tiles.resize(largura * altura)
-	tiles.fill(PAREDE)
+	tiles.fill(CHAO)
 
 	var alvo := rng.randi_range(15, 20)   # 9: 15-20 salas
 	var tentativas := 0
@@ -53,23 +51,8 @@ func _gerar() -> void:
 		if colide:
 			continue
 		salas.append(nova)
-		_escavar_sala(nova)
-		# Ligar SEMPRE a sala anterior mantem o grafo conexo por construcao:
-		# e uma arvore, entao toda sala alcanca a sala 0.
-		if salas.size() > 1:
-			_corredor(salas[salas.size() - 2].get_center(), nova.get_center(), rng)
-
-	# Atalhos extras: so criam voltas, nunca ilhas.
-	var extras := rng.randi_range(3, 5)
-	for i in range(extras):
-		if salas.size() < 3:
-			break
-		var a := salas[rng.randi_range(0, salas.size() - 1)]
-		var b := salas[rng.randi_range(0, salas.size() - 1)]
-		if a != b:
-			_corredor(a.get_center(), b.get_center(), rng)
-
-	_selar_borda()
+	# Os pontos acima preservam a distribuicao deterministica dos spawns, mas
+	# a geometria inteira permanece aberta para o jogador atravessar livremente.
 
 func _escavar_sala(r: Rect2i) -> void:
 	for y in range(r.position.y, r.end.y):

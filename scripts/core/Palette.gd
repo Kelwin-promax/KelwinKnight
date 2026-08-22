@@ -1,14 +1,14 @@
 class_name Palette
 extends RefCounted
 
-## 1.2: pixel art suja, low-res. Marrom, vermelho escuro, preto, cinza,
-## verde putrido. Nada de cor saturada alegre - o Submundo e um purgatorio.
+## 1.2: pixel art suja, low-res. Roxo escuro, vermelho, preto.
+## A paleta segue o tilesheet do Submundo: tons purpura sujos.
 
-const VAZIO      := Color(0.031, 0.027, 0.031)  # fora do mapa, o nada
-const PEDRA      := Color(0.106, 0.090, 0.094)  # corpo da parede
-const PEDRA_TOPO := Color(0.286, 0.243, 0.224)  # face da parede virada pro jogador
-const CHAO       := Color(0.243, 0.204, 0.192)  # carne e terra batida
-const CHAO_ALT   := Color(0.231, 0.192, 0.184)  # xadrez do chao (quase imperceptivel)
+const VAZIO      := Color(0.047, 0.031, 0.055)  # fora do mapa, o nada
+const PEDRA      := Color(0.090, 0.063, 0.106)  # corpo da parede
+const PEDRA_TOPO := Color(0.247, 0.180, 0.275)  # face da parede virada pro jogador
+const CHAO       := Color(0.204, 0.153, 0.231)  # chao do Submundo
+const CHAO_ALT   := Color(0.192, 0.141, 0.220)  # xadrez do chao (quase imperceptivel)
 const MANCHA     := Color(0.259, 0.106, 0.098)  # sangue seco no chao
 
 const CARNE      := Color(0.451, 0.290, 0.259)

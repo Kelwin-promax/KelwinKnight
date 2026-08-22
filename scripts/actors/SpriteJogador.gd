@@ -55,10 +55,10 @@ const ANIMS := {
 	# a corrida reusa o ciclo mais rapido: a folha tem uma pose de corrida
 	# (banda 1, figura 0), mas parada ela nao mexe as pernas.
 	"correr":       {"figs": [[0, 0], [0, 1], [0, 2], [0, 3]], "fps": 14.0},
-	# banda 1 - corrida, o salto com rastro de velocidade, a aterrissagem
-	"dash":         {"figs": [[1, 1]], "fps": 0.0},
-	# banda 2 - soco (armado -> estendido) e chute (joelho -> perna esticada)
-	"ataque_leve":  {"figs": [[2, 0], [2, 1]], "fps": 0.0},
+	# banda 1 - corrida agachada, disparada horizontal e aterrissagem
+	"dash":         {"figs": [[1, 2]], "fps": 0.0},
+	# banda 2 - soco, joelhada e chute, em sequencia durante o ataque leve
+	"ataque_leve":  {"figs": [[2, 0], [2, 1], [2, 2], [2, 3]], "fps": 0.0},
 	"chute":        {"figs": [[2, 2], [2, 3]], "fps": 0.0},
 	# banda 3 - golpe pesado, a pose parada e o recuo de quem levou dano
 	"ataque_forte": {"figs": [[3, 0], [3, 1]], "fps": 0.0},

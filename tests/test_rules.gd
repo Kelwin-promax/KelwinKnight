@@ -132,11 +132,11 @@ func _teste_combo() -> void:
 # ---------------------------------------------------------------- 2 spawn
 func _teste_spawn() -> void:
 	_afirma(Balance.SPAWN_INTERVALO == 10.0, "um monstro surge a cada 10s")
-	_afirma(Balance.CAP_BASE == 15, "teto inicial de 15 monstros vivos")
-	_afirma(Balance.monster_cap(0) == 15, "sem cavaleiro morto: teto 15")
-	_afirma(Balance.monster_cap(1) == 16, "1 cavaleiro morto: teto 16")
-	_afirma(Balance.monster_cap(2) == 18, "2 cavaleiros mortos: teto 18")
-	_afirma(Balance.monster_cap(4) >= 24, "4+ cavaleiros: teto 24 ou mais", "= %d" % Balance.monster_cap(4))
+	_afirma(Balance.CAP_BASE == 30, "teto inicial de 30 monstros vivos")
+	_afirma(Balance.monster_cap(0) == 30, "sem cavaleiro morto: teto 30")
+	_afirma(Balance.monster_cap(1) == 31, "1 cavaleiro morto: teto 31")
+	_afirma(Balance.monster_cap(2) == 33, "2 cavaleiros mortos: teto 33")
+	_afirma(Balance.monster_cap(4) >= 39, "4+ cavaleiros: teto 39 ou mais", "= %d" % Balance.monster_cap(4))
 
 	var cresce := true
 	for i in range(0, 8):

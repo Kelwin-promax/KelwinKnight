@@ -1,11 +1,15 @@
 extends Node
 
+const BalanceRules = preload("res://scripts/core/Balance.gd")
+const GamePalette = preload("res://scripts/core/Palette.gd")
+
 ## Estado de uma run. Autoload: sobrevive a troca de cena, mas NAO sobrevive
 ## a morte - 2 diz que morrer reseta tudo, inclusive o contador de consumos
 ## e o inventario. Nao existe progressao entre runs.
 
 signal stats_mudaram()
 signal log_novo(texto: String, cor: Color)
+signal impacto(forca: float, pos: Vector2, dir: Vector2)
 
 # --------------------------------------------------------------------- vida
 var hp_max: float = 100.0
@@ -20,7 +24,7 @@ var habilidades: Dictionary = {}             # id da criatura -> {nome, tipo, co
 var proficiencia: Dictionary = {}            # id da acao -> usos bem-sucedidos
 
 # ------------------------------------------------------------ 3.4 inventario
-var slots: int = Balance.SLOTS_INICIAIS
+var slots: int = BalanceRules.SLOTS_INICIAIS
 var inventario: Array[String] = []
 
 # -------------------------------------------------------------- 5 cavaleiros
@@ -37,7 +41,7 @@ var monstros_mortos: int = 0
 ## 3.2: a resistencia sobe com o que voce consegue engolir.
 var resistencia: int:
 	get:
-		return Balance.resistencia_por_consumos(consumos_total)
+		return BalanceRules.resistencia_por_consumos(consumos_total)
 
 ## Permadeath. Zera tudo e comeca outra vez com fome.
 func reset_run() -> void:
@@ -47,7 +51,7 @@ func reset_run() -> void:
 	consumos_por_criatura.clear()
 	habilidades.clear()
 	proficiencia.clear()
-	slots = Balance.SLOTS_INICIAIS
+	slots = BalanceRules.SLOTS_INICIAIS
 	inventario.clear()
 	armas_na_alma.clear()
 	arma_equipada = ""
@@ -58,27 +62,27 @@ func reset_run() -> void:
 	monstros_mortos = 0
 	stats_mudaram.emit()
 
-func mensagem(texto: String, cor: Color = Palette.HUD_TEXTO) -> void:
+func mensagem(texto: String, cor: Color = GamePalette.HUD_TEXTO) -> void:
 	log_novo.emit(texto, cor)
 
 # ------------------------------------------------------------------ consumo
 ## Come uma criatura. Devolve o efeito colateral aplicado, ja considerando
 ## em que ponto da curva de 51 o jogador esta.
 func consumir(id_criatura: String) -> Dictionary:
-	var efeito := Balance.consume_effect(consumos_total)
+	var efeito: Dictionary = BalanceRules.consume_effect(consumos_total)
 	consumos_total += 1
 
 	var n := int(consumos_por_criatura.get(id_criatura, 0)) + 1
 	consumos_por_criatura[id_criatura] = n
 
-	var info := Balance.bestiario_por_id(id_criatura)
+	var info: Dictionary = BalanceRules.bestiario_por_id(id_criatura)
 	var primeira := not habilidades.has(id_criatura)
 	if not info.is_empty():
 		habilidades[id_criatura] = {
 			"nome": String(info["hab"]),
 			"tipo": String(info["tipo"]),
 			"consumos": n,
-			"escala": Balance.habilidade_escala(n),
+			"escala": BalanceRules.habilidade_escala(n),
 		}
 
 	efeito["primeira_vez"] = primeira
@@ -93,19 +97,19 @@ func consumir(id_criatura: String) -> Dictionary:
 # ------------------------------------------------------------- proficiencia
 ## Registra um golpe acertado e devolve `true` se subiu de nivel.
 func registrar_uso(acao: String) -> bool:
-	var antes := Balance.proficiency_level(int(proficiencia.get(acao, 0)))
+	var antes: int = BalanceRules.proficiency_level(int(proficiencia.get(acao, 0)))
 	proficiencia[acao] = int(proficiencia.get(acao, 0)) + 1
-	var depois := Balance.proficiency_level(int(proficiencia[acao]))
+	var depois: int = BalanceRules.proficiency_level(int(proficiencia[acao]))
 	if depois > antes:
 		stats_mudaram.emit()
 		return true
 	return false
 
 func bonus_proficiencia(acao: String) -> int:
-	return Balance.proficiency_bonus(int(proficiencia.get(acao, 0)))
+	return BalanceRules.proficiency_bonus(int(proficiencia.get(acao, 0)))
 
 func nivel_proficiencia(acao: String) -> int:
-	return Balance.proficiency_level(int(proficiencia.get(acao, 0)))
+	return BalanceRules.proficiency_level(int(proficiencia.get(acao, 0)))
 
 # ------------------------------------------------ 2 gatilho do mini-boss
 ## Marca uma morte e diz se isso invocou um Cavaleiro:
@@ -114,15 +118,15 @@ func registrar_morte_de_monstro() -> bool:
 	monstros_mortos += 1
 	mortes_recentes.append(tempo_run)
 	# descarta o que saiu da janela
-	while mortes_recentes.size() > 0 and tempo_run - mortes_recentes[0] > Balance.MINIBOSS_JANELA:
+	while mortes_recentes.size() > 0 and tempo_run - mortes_recentes[0] > BalanceRules.MINIBOSS_JANELA:
 		mortes_recentes.remove_at(0)
-	if mortes_recentes.size() >= Balance.MINIBOSS_KILLS:
+	if mortes_recentes.size() >= BalanceRules.MINIBOSS_KILLS:
 		mortes_recentes.clear()   # consome o gatilho
 		return true
 	return false
 
 func teto_de_monstros() -> int:
-	return Balance.monster_cap(cavaleiros_mortos)
+	return BalanceRules.monster_cap(cavaleiros_mortos)
 
 # ------------------------------------------------------------------- armas
 func ganhar_arma(nome_arma: String) -> void:

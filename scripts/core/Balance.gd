@@ -88,7 +88,7 @@ static func damage_multiplier(combo: int, repeticoes: int) -> float:
 
 # ------------------------------------------------------------------ 2 SPAWN
 const SPAWN_INTERVALO := 10.0   # um monstro a cada 10s
-const CAP_BASE := 15            # teto de monstros vivos
+const CAP_BASE := 30            # teto de monstros vivos
 const MINIBOSS_KILLS := 5       # 5 mortes...
 const MINIBOSS_JANELA := 60.0   # ...em menos de 60s invoca um Cavaleiro
 
@@ -96,20 +96,20 @@ const MINIBOSS_JANELA := 60.0   # ...em menos de 60s invoca um Cavaleiro
 static func monster_cap(cavaleiros_mortos: int) -> int:
 	match cavaleiros_mortos:
 		0: return CAP_BASE
-		1: return 16
-		2: return 18
-		3: return 21
-		_: return 24 + (cavaleiros_mortos - 4) * 3
+		1: return CAP_BASE + 1
+		2: return CAP_BASE + 3
+		3: return CAP_BASE + 6
+		_: return CAP_BASE + 9 + (cavaleiros_mortos - 4) * 3
 
 # -------------------------------------------------------------- 4 BESTIARIO
 ## id, nome, hp, habilidade concedida ao ser comido, tipo e forma visual.
 const BESTIARIO := [
 	{"id":"rastejador", "nome":"Rastejador de Olhos", "hp":25, "hab":"Visão Sombria",
-	 "tipo":"passiva", "vel":86,  "dano":7,  "cor":Color(0.42,0.36,0.20), "porte":0.95, "olhos":6},
+	 "tipo":"passiva", "vel":86,  "dano":7,  "cor":Color(0.42,0.36,0.20), "porte":0.50, "olhos":6},
 	{"id":"carniceiro", "nome":"Carniceiro Ósseo", "hp":40, "hab":"Ossos Reforçados",
-	 "tipo":"passiva", "vel":74,  "dano":11, "cor":Color(0.72,0.69,0.60), "porte":1.20, "olhos":2},
+	 "tipo":"passiva", "vel":74,  "dano":11, "cor":Color(0.72,0.69,0.60), "porte":4.00, "olhos":2},
 	{"id":"peleveloz", "nome":"Pele Veloz", "hp":20, "hab":"Agilidade Felina",
-	 "tipo":"ativa",   "vel":150, "dano":6,  "cor":Color(0.55,0.24,0.20), "porte":0.85, "olhos":2},
+	 "tipo":"ativa",   "vel":150, "dano":6,  "cor":Color(0.55,0.24,0.20), "porte":1.50, "olhos":2},
 	{"id":"ambutcher", "nome":"Ambutcher", "hp":25, "hab":"Invisibilidade",
 	 "tipo":"ativa",   "vel":104, "dano":14, "cor":Color(0.30,0.26,0.30), "porte":1.00, "olhos":2},
 	{"id":"vigia", "nome":"Vigia Carniça", "hp":45, "hab":"Radar",

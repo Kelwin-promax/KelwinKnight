@@ -56,6 +56,9 @@ var _impeto: int = 0                 # acertos consecutivos com a Espada Colossa
 var _crit_contra: Node = null
 var _crit_t: float = 0.0
 
+# --- rastro do dash
+var _rastro: Array[Vector2] = []
+
 # --- estados de corpo
 var _desmaio: float = 0.0
 var _lentidao: float = 0.0
@@ -106,6 +109,12 @@ func _process(delta: float) -> void:
 
 	_atualizar_dash(delta)
 	_mover(delta)
+	if _dash_t > 0.0:
+		_rastro.append(global_position)
+		while _rastro.size() > 4:
+			_rastro.pop_front()
+	else:
+		_rastro.clear()
 	queue_redraw()
 
 func _pode_agir() -> bool:
@@ -242,6 +251,10 @@ func _resolver_golpe() -> void:
 		var dano := _calcular_dano(e)
 		e.levar_dano(dano["valor"], d.normalized() * (150.0 if _atk_pesado else 70.0))
 		acertou_algo = true
+		var fi := 0.25 if not _atk_pesado else 0.5
+		if String(dano["tipo"]) != "":
+			fi = 0.8
+		GameState.impacto.emit(fi, e.global_position, d.normalized())
 		if String(dano["tipo"]) != "":
 			acao_relevante.emit(dano["tipo"], Palette.HUD_DESTAQUE)
 
@@ -351,9 +364,17 @@ func receber_golpe(dano: float, origem: Vector2, atacante: Node) -> Dictionary:
 		if sofrido > 0.0:
 			etiqueta += " (-%d)" % int(round(sofrido))
 		acao_relevante.emit(etiqueta, cor)
+		var dir_p := (global_position - origem)
+		if dir_p.length() > 0.001:
+			dir_p = dir_p.normalized()
+		GameState.impacto.emit(0.6 if sofrido <= 0.0 else 0.35, global_position, dir_p)
 		return {"parry": true, "atordoa": bool(r["atordoa"])}
 
 	_aplicar_dano(dano, origem)
+	var dir_d := (global_position - origem)
+	if dir_d.length() > 0.001:
+		dir_d = dir_d.normalized()
+	GameState.impacto.emit(0.2, global_position, dir_d)
 	return {"parry": false, "atordoa": false}
 
 func _aplicar_dano(quanto: float, origem: Vector2) -> void:
@@ -435,6 +456,12 @@ func _anim_atual() -> Array:
 	return ["parado", 0.0]
 
 func _draw() -> void:
+	for i in range(_rastro.size()):
+		var a := 0.18 * (float(i + 1) / maxf(float(_rastro.size()), 1.0))
+		var ofs := _rastro[i] - global_position
+		draw_circle(ofs + Vector2(0, -14), 10.0,
+				Color(Palette.TRAPO.r, Palette.TRAPO.g, Palette.TRAPO.b, a))
+
 	var andando := vel.length() > 12.0
 	var fase := 0.0
 	if _atk_t >= 0.0:

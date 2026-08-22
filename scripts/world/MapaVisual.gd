@@ -7,13 +7,22 @@ extends Node2D
 const FUNDO_SUBMUNDO := preload("res://assets/Submundo.png")
 const TILE_SHEET := preload("res://assets/tilesheet_submundo.svg")
 const TILE_SHEET_TILE := 48
+const DECO_VOID := Vector2i(4, 0)
+const DECO_LAVA := Vector2i(5, 0)
+const DECO_LAVA_CORE := Vector2i(1, 1)
+const DECO_ROOTS := Vector2i(2, 1)
+const DECO_ALTAR := Vector2i(3, 1)
+const DECO_WATER := Vector2i(4, 1)
+const DECO_EDGE := Vector2i(5, 1)
 
 var dungeon: Dungeon
 var _rng := RandomNumberGenerator.new()
+var _deco: Dictionary = {}
 
 func configurar(p_dungeon: Dungeon) -> void:
 	dungeon = p_dungeon
 	_rng.seed = dungeon.semente
+	_gerar_deco()
 	queue_redraw()
 
 func _draw() -> void:
@@ -28,11 +37,102 @@ func _draw() -> void:
 			var px := float(x) * T
 			var py := float(y) * T
 			if dungeon.solido(x, y):
-				_desenhar_tile(px, py, 2, 0, 0.34)
+				_desenhar_tile(px, py, 2, 0, 0.92)
 				_parede(x, y, px, py, T)
+				continue
+			_desenhar_tile(px, py, 0 if (x + y) % 2 == 0 else 1, 0, 0.88)
+			var pos := Vector2i(x, y)
+			if _deco.has(pos):
+				var d: Vector2i = _deco[pos]
+				_desenhar_tile(px, py, d.x, d.y, 0.90)
 			else:
-				_desenhar_tile(px, py, 0 if (x + y) % 2 == 0 else 1, 0, 0.28)
 				_chao(x, y, px, py, T)
+				_caracaca(x, y, px, py, T)
+
+	for pos in _deco:
+		var d: Vector2i = _deco[pos]
+		if d == DECO_LAVA or d == DECO_LAVA_CORE:
+			var cx := float(pos.x) * T + T * 0.5
+			var cy := float(pos.y) * T + T * 0.5
+			var raio := T * 2.0 if d == DECO_LAVA_CORE else T * 1.3
+			draw_circle(Vector2(cx, cy), raio, Color(1.0, 0.4, 0.1, 0.07))
+		elif d == DECO_ALTAR:
+			var cx := float(pos.x) * T + T * 0.5
+			var cy := float(pos.y) * T + T * 0.5
+			draw_circle(Vector2(cx, cy), T * 1.5, Color(1.0, 0.5, 0.15, 0.05))
+
+func _gerar_deco() -> void:
+	_deco.clear()
+	# Void border: the map fades into darkness at the edges
+	for x in range(dungeon.largura):
+		_deco[Vector2i(x, 0)] = DECO_VOID
+		_deco[Vector2i(x, 1)] = DECO_EDGE
+		_deco[Vector2i(x, dungeon.altura - 1)] = DECO_VOID
+		_deco[Vector2i(x, dungeon.altura - 2)] = DECO_EDGE
+	for y in range(dungeon.altura):
+		_deco[Vector2i(0, y)] = DECO_VOID
+		_deco[Vector2i(1, y)] = DECO_EDGE
+		_deco[Vector2i(dungeon.largura - 1, y)] = DECO_VOID
+		_deco[Vector2i(dungeon.largura - 2, y)] = DECO_EDGE
+
+	# Roots creeping in from the border
+	for x in range(2, dungeon.largura - 2):
+		if _hash(x, 2) % 5 == 0:
+			_deco[Vector2i(x, 2)] = DECO_ROOTS
+		if _hash(x, dungeon.altura - 3) % 5 == 0:
+			_deco[Vector2i(x, dungeon.altura - 3)] = DECO_ROOTS
+	for y in range(2, dungeon.altura - 2):
+		if _hash(2, y) % 5 == 0:
+			_deco[Vector2i(2, y)] = DECO_ROOTS
+		if _hash(dungeon.largura - 3, y) % 5 == 0:
+			_deco[Vector2i(dungeon.largura - 3, y)] = DECO_ROOTS
+
+	# Lava pools scattered between rooms
+	var n_lava := _rng.randi_range(6, 10)
+	for _i in range(n_lava):
+		_colocar_lava()
+
+	# Altars in ~25% of rooms
+	for i in range(dungeon.salas.size()):
+		var s := dungeon.salas[i]
+		if _hash(s.position.x, s.position.y) % 4 == 0:
+			var cx := s.position.x + s.size.x / 2
+			var cy := s.position.y + s.size.y / 2
+			if not _deco.has(Vector2i(cx, cy)):
+				_deco[Vector2i(cx, cy)] = DECO_ALTAR
+
+	# Water puddles
+	var n_water := _rng.randi_range(10, 15)
+	for _i in range(n_water):
+		var wx := _rng.randi_range(4, dungeon.largura - 5)
+		var wy := _rng.randi_range(4, dungeon.altura - 5)
+		if not _deco.has(Vector2i(wx, wy)):
+			_deco[Vector2i(wx, wy)] = DECO_WATER
+			if _rng.randi() % 3 == 0:
+				var dx := _rng.randi_range(-1, 1)
+				var dy := _rng.randi_range(-1, 1)
+				var adj := Vector2i(wx + dx, wy + dy)
+				if not _deco.has(adj):
+					_deco[adj] = DECO_WATER
+
+func _colocar_lava() -> void:
+	for _tentativa in range(20):
+		var lx := _rng.randi_range(6, dungeon.largura - 7)
+		var ly := _rng.randi_range(6, dungeon.altura - 7)
+		var em_sala := false
+		for s in dungeon.salas:
+			if Rect2i(s.position - Vector2i(3, 3), s.size + Vector2i(6, 6)).has_point(Vector2i(lx, ly)):
+				em_sala = true
+				break
+		if em_sala or _deco.has(Vector2i(lx, ly)):
+			continue
+		_deco[Vector2i(lx, ly)] = DECO_LAVA_CORE
+		for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+			if _rng.randi() % 3 != 0:
+				var p := Vector2i(lx + d.x, ly + d.y)
+				if not _deco.has(p):
+					_deco[p] = DECO_LAVA
+		return
 
 func _desenhar_tile(px: float, py: float, coluna: int, linha: int, opacidade: float) -> void:
 	var origem := Rect2(coluna * TILE_SHEET_TILE, linha * TILE_SHEET_TILE,
@@ -54,7 +154,7 @@ func _chao(x: int, y: int, px: float, py: float, T: float) -> void:
 	if h % 37 == 0:
 		# mancha de sangue seco
 		draw_circle(Vector2(px + T * 0.5, py + T * 0.5), T * 0.28,
-				Color(Palette.MANCHA.r, Palette.MANCHA.g, Palette.MANCHA.b, 0.30))
+				Color(0.38, 0.035, 0.12, 0.72))
 
 	# Sombra de contato: o chao escurece encostado na pedra. E isso, mais que
 	# a cor da parede, que faz a planta do mapa aparecer em vista 3/4.
@@ -65,6 +165,30 @@ func _chao(x: int, y: int, px: float, py: float, T: float) -> void:
 		draw_rect(Rect2(px, py, 5.0, T), sombra)
 	if dungeon.solido(x + 1, y):
 		draw_rect(Rect2(px + T - 5.0, py, 5.0, T), sombra)
+
+func _caracaca(x: int, y: int, px: float, py: float, T: float) -> void:
+	var h := _hash(x, y)
+	if h % 173 != 0:
+		return
+	var centro := Vector2(px + T * 0.5, py + T * 0.52)
+	var rot := -0.35 if h % 2 == 0 else 0.35
+	draw_set_transform(centro, rot, Vector2.ONE)
+	_desenhar_elipse(Vector2.ZERO, Vector2(15.0, 7.0), Color(0.12, 0.045, 0.12, 0.95))
+	draw_circle(Vector2(14.0, -1.0), 5.0, Color(0.20, 0.07, 0.15, 0.98))
+	draw_line(Vector2(-12.0, -3.0), Vector2(-23.0, -10.0), Color(0.10, 0.035, 0.10, 0.95), 3.0)
+	draw_line(Vector2(-10.0, 3.0), Vector2(-22.0, 10.0), Color(0.10, 0.035, 0.10, 0.95), 3.0)
+	draw_line(Vector2(5.0, -5.0), Vector2(18.0, -12.0), Color(0.10, 0.035, 0.10, 0.95), 3.0)
+	draw_line(Vector2(5.0, 5.0), Vector2(18.0, 12.0), Color(0.10, 0.035, 0.10, 0.95), 3.0)
+	draw_circle(Vector2(15.5, -2.0), 1.2, Color(0.55, 0.12, 0.20, 0.95))
+	draw_circle(Vector2(15.5, 1.0), 1.2, Color(0.55, 0.12, 0.20, 0.95))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _desenhar_elipse(centro: Vector2, raios: Vector2, cor: Color) -> void:
+	var pontos := PackedVector2Array()
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		pontos.append(centro + Vector2(cos(a) * raios.x, sin(a) * raios.y))
+	draw_colored_polygon(pontos, cor)
 
 func _parede(x: int, y: int, px: float, py: float, T: float) -> void:
 	# Sem chao em volta? E rocha macica, nao precisa de detalhe.
