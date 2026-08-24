@@ -22,19 +22,26 @@ const CAMINHO_JSON := "res://assets/sprites/jogador.json"
 ## contorno de PX - do pe ao topo da cabeca da ~35px. Ficar nessa altura e o
 ## que mantem tres relacoes de pe:
 ##
-##   - o tile tem 48px e os corredores 2 tiles (96px): um boneco de 35px anda
+##   - o tile tem 48px e os corredores 2 tiles (96px): um boneco de ~37px anda
 ##     por eles; um de 106px e mais alto que a largura do corredor.
-##   - ATK_LEVE.alcance = 46 (7.2): o golpe alcanca 1.3x a altura do corpo.
+##   - ATK_JAB.alcance = 40 (7.2): o golpe alcanca ~1.1x a altura do corpo.
 ##     Com 106px o soco nao passaria do joelho do proprio jogador.
-##   - a pose 'parado' da folha tem 102x242, entao nesta altura o corpo fica
-##     com ~17px de largura. E esse numero, nao a altura, que Player.RAIO tem
-##     de acompanhar para a hitbox coincidir com o desenho.
+##   - a pose neutra da folha tem 111x172, entao nesta altura o corpo fica com
+##     ~24px de largura - e isso ja contando braco balancando e a sombra que
+##     veio desenhada no chao. O tronco em si e bem mais estreito, e e por ele
+##     que Player.RAIO = 9 (caixa de 18px) se guia.
+##
+## A escala e UMA para a folha inteira e sai de `altura_ref`, que nesta folha e
+## 186px - a banda dos chutes, com a perna esticada pra cima. Por isso ninguem
+## chega a 40px na tela: o boneco em pe da ~37px, e o chute e que ocupa os 40.
+## Escalar cada pose para uma altura fixa faria o personagem encolher e crescer
+## a cada golpe.
 ##
 ## Casar a ALTURA com o boneco de codigo e casar a LARGURA sao coisas
 ## diferentes: o desenho por codigo e atarracado (30px de largura para 35 de
-## altura) e a folha e um humano de verdade (2.4:1). Quem manda aqui e a
-## altura, porque e ela que se compara com o tile e com os monstros; a
-## largura entra depois, pelo RAIO.
+## altura) e a folha e um humano de verdade. Quem manda aqui e a altura, porque
+## e ela que se compara com o tile e com os monstros; a largura entra depois,
+## pelo RAIO.
 const ALTURA_ALVO := 40.0
 
 ## Encosta o pe na sombra. A caixa e apertada no pixel, entao o acerto e fino.
@@ -49,25 +56,82 @@ const AJUSTE_Y := 3.0
 ##              o windup do ataque leve e de 0.07s (7.2), e um ciclo por tempo
 ##              poria o quadro do soco na tela depois de ele ja ter acertado na
 ##              regra. Assim o braco estica no mesmo frame em que o dano sai.
+## A folha tem 4 bandas, uma por fileira rotulada no desenho:
+##
+##   banda 0 (Movement, 12): 0-3 caminhada · 4-5 corrida · 6 dash · 7-11 pulo
+##   banda 1 (Punches,  10): 0-2 jab · 3-4 direto · 5-6 cruzado · 7-9 uppercut
+##   banda 2 (Kicks,     9): 0-1 chute · 2-4 chute alto · 5-6 chute giratorio
+##                           · 7-8 sobra (7 vira a guarda do parry)
+##   banda 3 (Strikes,   4): 0 cabecada · 1 joelhada · 2-3 cotovelada
+##
+## "fps" > 0  : ciclo por tempo (caminhar, correr).
+## "fps" == 0 : a animacao anda pelo PROGRESSO da acao (0..1).
+##
+## "golpe" e o indice do quadro em que o punho/pe CHEGA. Ele existe porque a
+## folha nao desenha as sequencias todas na mesma ordem: no jab o quadro do
+## impacto e o primeiro e os outros dois sao a recomposicao da guarda, enquanto
+## no chute alto o impacto e o ultimo dos tres. Sem essa marca, um progresso
+## linear poria a perna esticada 0.15s DEPOIS de o dano ja ter saido no chute
+## alto - ver progresso_de_ataque().
 const ANIMS := {
-	# banda 0 - ciclo de caminhada, 4 quadros
-	"andar":        {"figs": [[0, 0], [0, 1], [0, 2], [0, 3]], "fps": 9.0},
-	# a corrida reusa o ciclo mais rapido: a folha tem uma pose de corrida
-	# (banda 1, figura 0), mas parada ela nao mexe as pernas.
-	"correr":       {"figs": [[0, 0], [0, 1], [0, 2], [0, 3]], "fps": 14.0},
-	# banda 1 - corrida agachada, disparada horizontal e aterrissagem
-	"dash":         {"figs": [[1, 2]], "fps": 0.0},
-	# banda 2 - soco, joelhada e chute, em sequencia durante o ataque leve
-	"ataque_leve":  {"figs": [[2, 0], [2, 1], [2, 2], [2, 3]], "fps": 0.0},
-	"chute":        {"figs": [[2, 2], [2, 3]], "fps": 0.0},
-	# banda 3 - golpe pesado, a pose parada e o recuo de quem levou dano
-	"ataque_forte": {"figs": [[3, 0], [3, 1]], "fps": 0.0},
-	"parado":       {"figs": [[3, 2]], "fps": 0.0},
-	"dano":         {"figs": [[3, 3]], "fps": 0.0},
-	# banda 4 - guarda e o corpo dobrado
-	"parry":        {"figs": [[4, 0]], "fps": 0.0},
-	"caido":        {"figs": [[4, 3]], "fps": 0.0},
+	# ------------------------------------------------------------ deslocamento
+	"andar":         {"figs": [[0, 0], [0, 1], [0, 2], [0, 3]], "fps": 9.0},
+	# a folha tem um ciclo de corrida proprio, de 2 quadros
+	"correr":        {"figs": [[0, 4], [0, 5]], "fps": 11.0},
+	"dash":          {"figs": [[0, 6]], "fps": 0.0},
+	# o pulo anda pelo PROGRESSO do salto: agacha, sobe, apoga, cai, aterrissa
+	"pulo":          {"figs": [[0, 7], [0, 8], [0, 9], [0, 10], [0, 11]], "fps": 0.0},
+	# ------------------------------------------------------------------ socos
+	"jab":           {"figs": [[1, 0], [1, 1], [1, 2]], "fps": 0.0, "golpe": 0},
+	"direto":        {"figs": [[1, 3], [1, 4]], "fps": 0.0, "golpe": 1},
+	"cruzado":       {"figs": [[1, 5], [1, 6]], "fps": 0.0, "golpe": 0},
+	"uppercut":      {"figs": [[1, 7], [1, 8], [1, 9]], "fps": 0.0, "golpe": 1},
+	# ----------------------------------------------------------------- chutes
+	"chute":         {"figs": [[2, 0], [2, 1]], "fps": 0.0, "golpe": 1},
+	"chute_alto":    {"figs": [[2, 2], [2, 3], [2, 4]], "fps": 0.0, "golpe": 2},
+	"chute_giro":    {"figs": [[2, 5], [2, 6]], "fps": 0.0, "golpe": 1},
+	# ------------------------------------------------------- golpes corporais
+	# A "Headbutt" da folha e o mesmo boneco duas vezes, espelhado, batendo
+	# cabeca consigo mesmo; preparar_folha.gd corta a metade esquerda. Sobra um
+	# quadro so - e a joelhada tambem so tem um.
+	"cabecada":      {"figs": [[3, 0]], "fps": 0.0},
+	"joelhada":      {"figs": [[3, 1]], "fps": 0.0},
+	"cotovelada":    {"figs": [[3, 2], [3, 3]], "fps": 0.0, "golpe": 1},
+	# ---------------------------------------------------------------- estados
+	# A folha e de golpes: nao tem pose de parado, de guarda nem de queda. Cada
+	# estado pega emprestada a que le mais parecido:
+	#   parado -> a guarda de punhos erguidos do jab. Um quadro de caminhada
+	#             solto parece passo congelado; a guarda parece espera.
+	#   parry  -> a guarda de bracos altos que sobrou da fileira de chutes,
+	#             a unica em que os dois bracos cobrem o rosto.
+	#   dano   -> a guarda encolhida do jab (a mais baixa das tres).
+	#   caido  -> o agachamento do pulo, o corpo mais dobrado da folha. O caido
+	#             ainda ganha rotacao e deslocamento no Player, entao os dois
+	#             nao se confundem na tela.
+	"parado":        {"figs": [[1, 1]], "fps": 0.0},
+	"parry":         {"figs": [[2, 7]], "fps": 0.0},
+	"dano":          {"figs": [[1, 2]], "fps": 0.0},
+	"caido":         {"figs": [[0, 7]], "fps": 0.0},
 }
+
+## Progresso que poe o quadro do impacto na tela no instante em que o dano sai.
+##
+## Os quadros ANTES do golpe se espalham pelo windup; do golpe em diante, pela
+## recuperacao. Com "golpe" = 0 nao ha o que mostrar antes, e o quadro do
+## impacto ja entra no primeiro frame da acao.
+static func progresso_de_ataque(anim: String, t: float, windup: float,
+		recup: float) -> float:
+	var d: Dictionary = ANIMS.get(anim, {})
+	var figs: Array = d.get("figs", [])
+	var n := figs.size()
+	if n <= 1:
+		return 0.0
+	var g := clampi(int(d.get("golpe", n - 1)), 0, n - 1)
+	if t < windup and g > 0:
+		var f := clampf(t / maxf(0.001, windup), 0.0, 0.9999)
+		return f * float(g) / float(n)
+	var r := clampf((t - windup) / maxf(0.001, recup), 0.0, 0.9999)
+	return (float(g) + r * float(n - g)) / float(n)
 
 static var _tex: Texture2D = null
 static var _bandas: Array = []

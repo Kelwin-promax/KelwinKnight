@@ -91,6 +91,35 @@ const MIN_CAIXA := 60
 ## Banda mais baixa que esta fracao da mais alta e rotulo escrito, nao pose.
 const FRACAO_BANDA_UTIL := 0.45
 
+## Coluna com POUCO pixel ainda conta como vao entre figuras (fracao da altura
+## da banda). Zero = so coluna totalmente vazia separa, que e o comportamento
+## historico.
+##
+## Existe por causa da SOMBRA. As folhas trazem uma elipse de sombra desenhada
+## sob os pes, e quando os bonecos ficam lado a lado essa sombra vira uma faixa
+## continua que costura a fileira inteira: na folha do jogador o ciclo de
+## caminhada saiu como UM retangulo de 329x171 em vez de quatro poses. A sombra
+## tem 4-6px de altura numa banda de ~180, entao uma coluna que so tem sombra
+## fica em ~3% - enquanto qualquer coluna que pegue corpo passa de 25%. Cortar
+## em 10% separa os bonecos e nao encosta em nenhum deles.
+##
+## Fica por folha, e nao global, de proposito: as outras 13 folhas ja tem o
+## .json gravado e os indices delas estao escritos nas tabelas de ANIMS. Mudar
+## a regra para todo mundo renumeraria figuras que ninguem pediu para mexer.
+const VALE_POR_FOLHA := {"jogador": 0.10}
+
+## Recortes que nenhuma regra automatica resolve, por folha e por "banda:figura".
+## O valor e a faixa horizontal que fica, em fracao da largura achada.
+##
+## A "Headbutt" da folha do jogador nao e uma sequencia de poses: e o MESMO
+## boneco desenhado duas vezes, espelhado, batendo cabeca com a propria imagem.
+## Os dois se encostam exatamente no eixo do espelho, entao nao existe vale de
+## densidade para cortar - o menor valor entre eles ainda e 55 de 153. Fica so a
+## metade esquerda, que e a que olha para a direita, o lado padrao da folha.
+const CORTES_MANUAIS := {
+	"jogador": {"3:0": [0.0, 0.5]},
+}
+
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var alvos: Array[String] = []
@@ -175,9 +204,10 @@ func _preparar(nome: String) -> void:
 	var altura_ref := 0
 	var alturas := PackedInt32Array()
 
+	var vale := float(VALE_POR_FOLHA.get(base, 0.0))
 	for bi in range(bandas.size()):
 		var b: Vector2i = bandas[bi]
-		var figs := _figuras(d, w, b.x, b.y)
+		var figs := _aplicar_cortes(d, w, base, bi, _figuras(d, w, b.x, b.y, vale))
 		var lista := []
 		var desc := PackedStringArray()
 		for fg in figs:
@@ -384,16 +414,48 @@ func _bandas(d: PackedByteArray, w: int, h: int) -> Array:
 		out.append(Vector2i(ini, h - 1))
 	return out
 
+## Aplica os CORTES_MANUAIS da folha. Um corte troca a figura por uma fatia dela,
+## e nao cria figura nova - assim os indices que as tabelas de ANIMS ja citam
+## continuam valendo.
+func _aplicar_cortes(d: PackedByteArray, w: int, base: String, bi: int,
+		figs: Array) -> Array:
+	var tabela: Dictionary = CORTES_MANUAIS.get(base, {})
+	if tabela.is_empty():
+		return figs
+	var out := []
+	for fi in range(figs.size()):
+		var r: Rect2i = figs[fi]
+		var chave := "%d:%d" % [bi, fi]
+		if not tabela.has(chave):
+			out.append(r)
+			continue
+		var faixa: Array = tabela[chave]
+		var x0 := r.position.x + int(float(r.size.x) * float(faixa[0]))
+		var x1 := r.position.x + int(float(r.size.x) * float(faixa[1])) - 1
+		# reaperta em Y: a fatia pode ser mais baixa que o bloco inteiro
+		var novo := _apertar(d, w, x0, x1, r.position.y, r.position.y + r.size.y - 1)
+		print("  corte manual %s: %dx%d -> %dx%d" % [chave, r.size.x, r.size.y,
+				novo.size.x, novo.size.y])
+		out.append(novo)
+	return out
+
 ## Dentro de uma banda, cada boneco e um grupo de colunas com pixel opaco.
-func _figuras(d: PackedByteArray, w: int, y0: int, y1: int) -> Array:
+##
+## `vale` afrouxa o que conta como vao: com 0.0 so uma coluna inteiramente vazia
+## separa duas figuras; acima disso, uma coluna que mal tem pixel (a faixa de
+## sombra entre dois bonecos) tambem separa. Ver VALE_POR_FOLHA.
+func _figuras(d: PackedByteArray, w: int, y0: int, y1: int, vale: float = 0.0) -> Array:
 	var out := []
 	var ini := -1
+	var limite := int(vale * float(y1 - y0 + 1))
 	for x in range(w):
-		var tem := false
+		var n := 0
 		for y in range(y0, y1 + 1):
 			if d[(y * w + x) * 4 + 3] > 8:
-				tem = true
-				break
+				n += 1
+				if n > limite:
+					break
+		var tem := n > limite
 		if tem and ini < 0:
 			ini = x
 		elif not tem and ini >= 0:

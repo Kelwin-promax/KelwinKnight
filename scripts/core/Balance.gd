@@ -179,12 +179,45 @@ static func impeto_belicoso(acertos_consecutivos: int) -> float:
 # ----------------------------------------------------------------- 7.2 ACOES
 const ATK_LEVE := {"dano": 9.0, "alcance": 46.0, "arco": 1.5, "windup": 0.07, "recup": 0.20, "id": "leve"}
 const ATK_FORTE := {"dano": 22.0, "alcance": 56.0, "arco": 2.1, "windup": 0.30, "recup": 0.48, "id": "forte"}
-const CARGA_MIN := 0.28          # segurar mais que isso vira ataque forte
+
+# --- socos (combo leve em sequencia)
+const ATK_JAB := {"dano": 7.0, "alcance": 40.0, "arco": 1.2, "windup": 0.05, "recup": 0.14, "id": "jab", "kb": 55.0, "impacto": 0.18}
+const ATK_DIRETO := {"dano": 9.0, "alcance": 46.0, "arco": 1.3, "windup": 0.07, "recup": 0.18, "id": "direto", "kb": 75.0, "impacto": 0.25}
+const ATK_CRUZADO := {"dano": 12.0, "alcance": 44.0, "arco": 1.8, "windup": 0.09, "recup": 0.22, "id": "cruzado", "kb": 90.0, "impacto": 0.30}
+const ATK_UPPERCUT := {"dano": 16.0, "alcance": 42.0, "arco": 1.4, "windup": 0.14, "recup": 0.30, "id": "uppercut", "kb": 130.0, "impacto": 0.45}
+
+# --- chutes (combo de chutes em sequencia)
+const ATK_CHUTE := {"dano": 11.0, "alcance": 52.0, "arco": 1.5, "windup": 0.10, "recup": 0.22, "id": "chute", "kb": 85.0, "impacto": 0.28}
+const ATK_CHUTE_ALTO := {"dano": 15.0, "alcance": 50.0, "arco": 1.4, "windup": 0.14, "recup": 0.30, "id": "chute_alto", "kb": 110.0, "impacto": 0.38}
+const ATK_CHUTE_GIRO := {"dano": 20.0, "alcance": 56.0, "arco": 2.4, "windup": 0.18, "recup": 0.38, "id": "chute_giro", "kb": 150.0, "impacto": 0.55}
+
+# --- golpes corporais (ataque pesado direcional)
+const ATK_CABECADA := {"dano": 14.0, "alcance": 28.0, "arco": 1.0, "windup": 0.08, "recup": 0.35, "id": "cabecada", "kb": 120.0, "impacto": 0.50}
+const ATK_JOELHADA := {"dano": 13.0, "alcance": 34.0, "arco": 1.2, "windup": 0.10, "recup": 0.28, "id": "joelhada", "kb": 100.0, "impacto": 0.40}
+const ATK_COTOVELADA := {"dano": 15.0, "alcance": 30.0, "arco": 1.6, "windup": 0.08, "recup": 0.25, "id": "cotovelada", "kb": 95.0, "impacto": 0.38}
+
+const COMBO_SOCOS: Array = [ATK_JAB, ATK_DIRETO, ATK_CRUZADO, ATK_UPPERCUT]
+const COMBO_CHUTES: Array = [ATK_CHUTE, ATK_CHUTE_ALTO, ATK_CHUTE_GIRO]
+const COMBO_INPUT_JANELA := 0.5
+
+static func golpe_pesado(agachado: bool, movendo_frente: bool) -> Dictionary:
+	if agachado:
+		return ATK_CABECADA
+	if movendo_frente:
+		return ATK_JOELHADA
+	return ATK_COTOVELADA
+
+const CARGA_MIN := 0.28
 const DASH_VEL := 460.0
 const DASH_DUR := 0.18
 const DASH_INVULN := 0.22
 const DASH_CD := 0.45
 const CORRIDA_MULT := 1.5
+
+# --- pulo
+const PULO_DURACAO := 0.35
+const PULO_INVULN := 0.20
+const PULO_CD := 0.40
 
 ## 7.7: golpe pelas costas e critico garantido 2x.
 const BACKSTAB_MULT := 2.0

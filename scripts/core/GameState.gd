@@ -150,11 +150,10 @@ func alternar_arma() -> void:
 	stats_mudaram.emit()
 
 ## Acao usada para contar proficiencia: o corpo e a arma sobem separados.
-func acao_de_ataque(pesado: bool) -> String:
-	var base := "forte" if pesado else "leve"
+func acao_de_ataque(atk_id: String) -> String:
 	if arma_equipada == "":
-		return "punho_" + base
-	return arma_equipada.to_lower().replace(" ", "_") + "_" + base
+		return atk_id
+	return arma_equipada.to_lower().replace(" ", "_") + "_" + atk_id
 
 # --------------------------------------------------------------- inventario
 func cabe_no_inventario() -> bool:

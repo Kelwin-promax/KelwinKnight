@@ -460,9 +460,9 @@ func _teste_cavaleiro() -> void:
 	GameState.ganhar_arma("Espada Colossal")
 	_afirma(GameState.armas_na_alma.has("Espada Colossal"), "a arma entra na alma")
 	_afirma(GameState.inventario.is_empty(), "a arma NAO ocupa slot de inventario")
-	_afirma(GameState.acao_de_ataque(false) == "espada_colossal_leve",
+	_afirma(GameState.acao_de_ataque("jab") == "espada_colossal_jab",
 			"a arma tem proficiencia propria, separada do punho",
-			GameState.acao_de_ataque(false))
+			GameState.acao_de_ataque("jab"))
 
 # --------------------------------------------------------- folha de sprites
 ## A folha e um asset externo: o teste nao adivinha o desenho, so garante que
@@ -477,9 +477,30 @@ func _teste_folha() -> void:
 			"toda pose citada existe na folha")
 
 	# as poses que o _anim_atual() do Player pode devolver
-	for nome in ["parado", "andar", "correr", "dash", "ataque_leve",
-			"ataque_forte", "parry", "dano", "caido"]:
+	for nome in ["parado", "andar", "correr", "dash", "pulo",
+			"jab", "direto", "cruzado", "uppercut",
+			"chute", "chute_alto", "chute_giro",
+			"cabecada", "joelhada", "cotovelada",
+			"parry", "dano", "caido"]:
 		_afirma(SpriteJogador.ANIMS.has(nome), "existe a pose '%s'" % nome)
+
+	# 7.2: o quadro do impacto tem de estar na tela NO INSTANTE em que o dano
+	# sai. A folha nao desenha as sequencias na mesma ordem - no jab o impacto e
+	# o primeiro quadro, no chute alto e o terceiro - entao um progresso linear
+	# atrasava a perna esticada em 0.15s. Este teste segura isso.
+	for atk in [Balance.ATK_JAB, Balance.ATK_DIRETO, Balance.ATK_CRUZADO,
+			Balance.ATK_UPPERCUT, Balance.ATK_CHUTE, Balance.ATK_CHUTE_ALTO,
+			Balance.ATK_CHUTE_GIRO, Balance.ATK_CABECADA, Balance.ATK_JOELHADA,
+			Balance.ATK_COTOVELADA]:
+		var id := String(atk["id"])
+		var d: Dictionary = SpriteJogador.ANIMS[id]
+		var n: int = (d["figs"] as Array).size()
+		var g: int = clampi(int(d.get("golpe", n - 1)), 0, n - 1)
+		var p := SpriteJogador.progresso_de_ataque(id, float(atk["windup"]),
+				float(atk["windup"]), float(atk["recup"]))
+		var idx := clampi(int(p * float(n)), 0, n - 1)
+		_afirma(idx == g, "'%s': o quadro do impacto entra junto com o dano" % id,
+				"quadro %d de %d, esperado %d" % [idx, n, g])
 
 # -------------------------------------------------------------- permadeath
 func _teste_permadeath() -> void:

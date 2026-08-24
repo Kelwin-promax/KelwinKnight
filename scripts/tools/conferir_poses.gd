@@ -32,15 +32,26 @@ func _draw() -> void:
 	var tela := get_viewport_rect().size
 	draw_rect(Rect2(Vector2.ZERO, tela), Color(0.10, 0.09, 0.10))
 
+	# A folha cresceu de 22 para ~37 quadros e passou a nao caber em 7 colunas:
+	# as ultimas linhas ficavam fora da tela e a conferencia mentia por omissao.
+	# Aperta a grade ate caber, em vez de cortar em silencio.
+	var total := 0
+	for nome_c in SpriteJogador.ANIMS:
+		total += (SpriteJogador.ANIMS[nome_c]["figs"] as Array).size()
+	var por_linha := POR_LINHA
+	while por_linha < total and \
+			130.0 + ceil(float(total) / float(por_linha)) * LIN > tela.y:
+		por_linha += 1
+	var col := minf(COL, (tela.x - 40.0) / float(por_linha))
+
 	var i := 0
 	for nome in SpriteJogador.ANIMS:
 		var d: Dictionary = SpriteJogador.ANIMS[nome]
 		var figs: Array = d["figs"]
 		var fps := float(d["fps"])
 		for q in range(figs.size()):
-			var col := i % POR_LINHA
-			var lin := i / POR_LINHA
-			var pos := Vector2(70.0 + float(col) * COL, 130.0 + float(lin) * LIN)
+			var pos := Vector2(30.0 + (float(i % por_linha) + 0.5) * col,
+					130.0 + float(i / por_linha) * LIN)
 
 			# chao de referencia: mostra se o pe esta ancorado certo
 			draw_line(pos - Vector2(46, 0), pos + Vector2(46, 0),
@@ -57,6 +68,6 @@ func _draw() -> void:
 			SpriteJogador.desenhar(self, String(nome), t, prog, 1.0, 0.0, pos)
 
 			var rot := "%s %d/%d" % [nome, q + 1, figs.size()] if figs.size() > 1 else String(nome)
-			draw_string(_fonte, pos + Vector2(-56, 22), rot,
-					HORIZONTAL_ALIGNMENT_LEFT, 112, 12, Color(0.86, 0.84, 0.80))
+			draw_string(_fonte, pos + Vector2(-col * 0.5 + 2.0, 22), rot,
+					HORIZONTAL_ALIGNMENT_LEFT, col - 4.0, 11, Color(0.86, 0.84, 0.80))
 			i += 1
