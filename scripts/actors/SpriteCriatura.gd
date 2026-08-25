@@ -30,9 +30,10 @@ const ARQUIVO := {
 	"conquista": "conquista",
 	"morte": "morte",
 	"fome": "fome",
+	"peste": "peste",
 	# Sem folha utilizavel, todos continuam no desenho por codigo:
 	#
-	#   - deslizador, peste: nao tem arte nenhuma na pasta.
+	#   - deslizador: nao tem arte nenhuma na pasta.
 	#
 	# Nenhum deles quebra nada: o Enemy testa disponivel() e cai no
 	# Figura.criatura() quando a folha nao existe.
@@ -106,27 +107,63 @@ const ANIMS := {
 		"dano":    {"banda": 2, "de": 0, "ate": 0, "fps": 0.0},
 		"morto":   {"banda": 2, "de": 10, "ate": 10, "fps": 0.0},
 	},
-	# Guerra: idle(8) / ataque(13) / especial(6) / investida(5) / dano+morte(9)
+	# 2026-08: folhas novas para os 5 Cavaleiros (skins novas em assets/sprites,
+	# preparadas por preparar_folha.gd + selecao manual - varias delas trazem a
+	# folha inteira num grid 2D que a deteccao automatica de bandas nao separa
+	# direito, entao os quadros abaixo foram escolhidos e recortados a mao).
+	#
+	# Guerra: cavaleiro sobre touro. idle(4) / andar de perfil(2) / golpe de
+	# chicote em 3 tempos(3) / investida de touro(2) / morte(1).
 	"guerra": {
-		"parado":  {"banda": 0, "de": 0, "ate": 4, "fps": 5.0},
-		"andar":   {"banda": 0, "de": 0, "ate": 4, "fps": 8.0},
-		"atacar":  {"banda": 1, "de": 0, "ate": 7, "fps": 0.0},
-		"investida": {"banda": 3, "de": 0, "ate": 4, "fps": 0.0},
-		"morto":   {"banda": 4, "de": 8, "ate": 8, "fps": 0.0},
+		"parado":  {"banda": 0, "de": 0, "ate": 3, "fps": 5.0},
+		"andar":   {"banda": 1, "de": 0, "ate": 1, "fps": 8.0},
+		"atacar":  {"banda": 2, "de": 0, "ate": 2, "fps": 0.0},
+		"investida": {"banda": 3, "de": 0, "ate": 1, "fps": 0.0},
+		"morto":   {"banda": 4, "de": 0, "ate": 0, "fps": 0.0},
 	},
+	# Conquista: cavaleiro com garra colossal. Sem quadro de morte na folha -
+	# cai no cadaver generico do Figura.
+	"conquista": {
+		"parado":  {"banda": 0, "de": 0, "ate": 3, "fps": 3.0},
+		"andar":   {"banda": 0, "de": 0, "ate": 3, "fps": 9.0},
+		"atacar":  {"banda": 1, "de": 0, "ate": 3, "fps": 0.0},
+		"investida": {"banda": 2, "de": 0, "ate": 2, "fps": 0.0},
+	},
+	# Morte: ceifador flutuante. Flutua parado e andando (nao tem pernas), a
+	# foice gira no ataque, o avanco vem da folha de "Forward Dash/Lunge"
+	# (quadros de rastro de fumaca, nao do corpo solido - fiel a folha).
+	# Sem quadro de morte na folha - cai no cadaver generico do Figura.
 	"morte": {
-		"parado":  {"banda": 0, "de": 0, "ate": 5, "fps": 5.0},
-		"andar":   {"banda": 1, "de": 0, "ate": 8, "fps": 10.0},
-		"atacar":  {"banda": 2, "de": 0, "ate": 7, "fps": 0.0},
-		"investida": {"banda": 3, "de": 0, "ate": 7, "fps": 0.0},
-		"morto":   {"banda": 4, "de": 11, "ate": 11, "fps": 0.0},
+		"parado":  {"banda": 0, "de": 0, "ate": 2, "fps": 3.0},
+		"andar":   {"banda": 0, "de": 0, "ate": 2, "fps": 7.0},
+		"atacar":  {"banda": 1, "de": 0, "ate": 2, "fps": 0.0},
+		"investida": {"banda": 2, "de": 0, "ate": 2, "fps": 0.0},
 	},
+	# Fome: cavaleiro sobre corcel esqueletico. Sem pose parada na folha - o
+	# ciclo de caminhada serve tambem de idle, so mais lento. Sem morte tambem.
+	#
+	# So entram os cavalos das tres primeiras fileiras. As poses empinadas da
+	# ultima fileira sao lindas, mas tem o DOBRO da altura das outras, e a escala
+	# da folha e uma so (altura_tipica) - usa-las faria o cavalo inchar na tela
+	# no instante do ataque.
 	"fome": {
-		"parado":  {"banda": 0, "de": 0, "ate": 5, "fps": 6.0},
-		"andar":   {"banda": 0, "de": 6, "ate": 13, "fps": 12.0},
-		"atacar":  {"banda": 1, "de": 0, "ate": 5, "fps": 0.0},
-		"investida": {"banda": 1, "de": 6, "ate": 11, "fps": 0.0},
-		"morto":   {"banda": 4, "de": 10, "ate": 10, "fps": 0.0},
+		"parado":  {"banda": 0, "de": 0, "ate": 3, "fps": 3.0},
+		"andar":   {"banda": 0, "de": 0, "ate": 3, "fps": 9.0},
+		"atacar":  {"banda": 1, "de": 0, "ate": 1, "fps": 0.0},
+		"investida": {"banda": 2, "de": 0, "ate": 1, "fps": 0.0},
+	},
+	# Peste: enxame de besouro com caveiras. "Walk" serve de parado/andar,
+	# "Skull Bite" vira o ataque, "Charge" a investida, e os 2 primeiros
+	# quadros de "Death" (corpo caido, poca derretida) o cadaver.
+	#
+	# O ataque comeca no 2o quadro da fileira: o 1o tem o rotulo "Skull Bite"
+	# escrito dentro da caixa, e recorte e retangulo - a palavra ia junto.
+	"peste": {
+		"parado":  {"banda": 0, "de": 0, "ate": 2, "fps": 3.0},
+		"andar":   {"banda": 0, "de": 0, "ate": 2, "fps": 9.0},
+		"atacar":  {"banda": 1, "de": 0, "ate": 4, "fps": 0.0},
+		"investida": {"banda": 2, "de": 0, "ate": 2, "fps": 0.0},
+		"morto":   {"banda": 3, "de": 0, "ate": 1, "fps": 0.0},
 	},
 }
 

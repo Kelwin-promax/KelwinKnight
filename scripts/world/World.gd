@@ -24,6 +24,9 @@ var _pausado: bool = false
 var _fade: float = 1.0
 var _cadaver_perto: Node = null
 var _cavaleiro_perto: Knight = null
+## Debug (F1/B): segura o ciclo de spawn pra so os Cavaleiros ficarem no mapa.
+## Zera a cada _montar(), entao um R devolve o jogo ao normal.
+var _so_bosses: bool = false
 
 var _hitstop: int = 0
 var _shake_forca: float = 0.0
@@ -95,6 +98,7 @@ func _montar() -> void:
 		_nascer_monstro(false)
 
 	_t_spawn = 0.0
+	_so_bosses = false
 	_morto = false
 	_fade = 1.0
 	_hitstop = 0
@@ -105,6 +109,22 @@ func _montar() -> void:
 	Engine.time_scale = 1.0
 	hud.mostrar_morte(false)
 	GameState.mensagem("Você acorda com fome.", Palette.HUD_TEXTO)
+
+	# godot --path . -- --bosses  -> ja abre no modo de conferencia, sem depender
+	# de alguem apertar F1. E o que torna a checagem dos sprites automatizavel.
+	#
+	# Congela os atores junto: com resistencia 0 todo golpe de Cavaleiro mata de
+	# um toque (regra do 5), entao sem isso a tela vira o "VOCE MORREU" antes de
+	# dar tempo de olhar. Pausar a arvore, e nao ligar o _pausado, e de proposito:
+	# o modo pausado desenha o painel de teclas por cima da cena.
+	if "--bosses" in OS.get_cmdline_user_args():
+		_debug_spawnar_todos_cavaleiros()
+		# Pausar a arvore sozinho NAO congela ninguem aqui: o World e
+		# PROCESS_MODE_ALWAYS (pra ler o P e o R durante a pausa) e process_mode
+		# e herdado, entao $Atores e todo mundo dentro dele tambem sao ALWAYS.
+		# Devolver os atores para PAUSABLE e o que faz a pausa valer pra eles.
+		$Atores.process_mode = Node.PROCESS_MODE_PAUSABLE
+		get_tree().paused = true
 
 func _process(delta: float) -> void:
 	if _hitstop > 0:
@@ -120,6 +140,9 @@ func _process(delta: float) -> void:
 	if _fade > 0.0:
 		_fade = maxf(0.0, _fade - delta * 0.7)
 		queue_redraw()
+
+	if Input.is_action_just_pressed("debug_spawn_cavaleiros"):
+		_debug_spawnar_todos_cavaleiros()
 
 	if Input.is_action_just_pressed("reiniciar") and _morto:
 		Engine.time_scale = 1.0
@@ -280,6 +303,8 @@ func _gradiente_luz(tamanho: int) -> ImageTexture:
 # ------------------------------------------------------------------ spawn
 ## 2: um monstro a cada 10s, em local aleatorio, respeitando o teto de vivos.
 func _ciclo_de_spawn(delta: float) -> void:
+	if _so_bosses:
+		return                       # debug: o mapa fica so com os Cavaleiros
 	_t_spawn += delta
 	if _t_spawn < Balance.SPAWN_INTERVALO:
 		return
@@ -362,6 +387,79 @@ func _invocar_cavaleiro() -> void:
 		# 5: a regra dura, dita na cara do jogador.
 		GameState.mensagem("Resistência %d: os golpes dele te matam de um toque. Desvie."
 				% GameState.resistencia, Palette.ALERTA)
+
+## Debug: F1 limpa o campo e poe os 5 Cavaleiros em volta do jogador, pra
+## conferir as folhas de sprite sem precisar jogar ate liberar cada um.
+##
+## Limpar os monstros comuns junto nao e conveniencia: com o teto de 30 vivos
+## eles cobrem os Cavaleiros na tela, que e exatamente o que se veio olhar.
+func _debug_spawnar_todos_cavaleiros() -> void:
+	_so_bosses = true
+	for e in get_tree().get_nodes_in_group("inimigos"):
+		if is_instance_valid(e):
+			e.queue_free()
+	for k in get_tree().get_nodes_in_group("cavaleiros"):
+		if is_instance_valid(k):
+			k.queue_free()
+	var postos: Array[Vector2] = []
+	for i in range(Balance.CAVALEIROS.size()):
+		var dados := Balance.cavaleiro_por_indice(i)
+		var k := CENA_CAVALEIRO.new()
+		k.configurar(dados, dungeon, jogador, _rng.randi())
+		k.global_position = _debug_posto_de_cavaleiro(i, postos)
+		postos.append(k.global_position)
+		k.morreu.connect(_ao_morrer_cavaleiro)
+		k.add_to_group("cavaleiros")
+		$Atores.add_child(k)
+	GameState.mensagem("Debug: os 5 Cavaleiros foram invocados.", Palette.HUD_DESTAQUE)
+
+## Onde por o i-esimo Cavaleiro do modo de conferencia.
+##
+## O ponto ideal fica numa ELIPSE, nao num circulo: a camera tem zoom 1.7 num
+## viewport de 960x540, entao cabe bem mais na horizontal (~282px do centro) que
+## na vertical (~159px), e num circulo de raio unico os de cima e os de baixo
+## nasciam fora do enquadramento - justamente o que se veio ver.
+##
+## Como o jogador pode acordar colado numa parede, o ponto ideal costuma cair em
+## pedra. Dai o leque: abre o angulo pros dois lados e encolhe o raio ate achar
+## chao livre que tambem nao esteja em cima de um Cavaleiro ja posto - senao os
+## cinco se empilham no mesmo canto e nao da pra ver nenhum.
+func _debug_posto_de_cavaleiro(i: int, ja_postos: Array[Vector2]) -> Vector2:
+	var base := (TAU / float(Balance.CAVALEIROS.size())) * float(i) - PI * 0.5
+	for tentativa in range(28):
+		var desvio := deg_to_rad(float((tentativa + 1) / 2) * 8.0)
+		var ang := base + (desvio if tentativa % 2 == 0 else -desvio)
+		var fator := 1.0 - 0.025 * float(tentativa)
+		var p := jogador.global_position \
+				+ Vector2(cos(ang) * 200.0 * fator, sin(ang) * 105.0 * fator)
+		if dungeon.solido_em(p):
+			continue
+		var colide := false
+		for q in ja_postos:
+			if q.distance_to(p) < 78.0:
+				colide = true
+				break
+		if not colide:
+			return p
+	# Fallback LOCAL: aneis concentricos em volta do jogador. Nao serve usar o
+	# dungeon.chao_aleatorio() aqui - ele sorteia um tile de chao em qualquer
+	# canto do mapa, e o Cavaleiro ia parar longe da camera, que e o oposto do
+	# que este modo existe pra fazer.
+	for raio in range(90, 330, 24):
+		for passo in range(24):
+			var a := TAU * float(passo) / 24.0
+			var q := jogador.global_position \
+					+ Vector2(cos(a) * float(raio), sin(a) * float(raio) * 0.55)
+			if dungeon.solido_em(q):
+				continue
+			var perto := false
+			for j in ja_postos:
+				if j.distance_to(q) < 70.0:
+					perto = true
+					break
+			if not perto:
+				return q
+	return jogador.global_position + Vector2(60.0 * float(i + 1), 0.0)
 
 func _ao_morrer_cavaleiro(k) -> void:
 	GameState.minibosses_vivos = maxi(0, GameState.minibosses_vivos - 1)
@@ -506,6 +604,7 @@ func _registrar_inputs() -> void:
 		"status":         [KEY_TAB],
 		"pausar":         [KEY_P],
 		"reiniciar":      [KEY_R],
+		"debug_spawn_cavaleiros": [KEY_F1, KEY_B],
 	}
 	for acao in mapa_teclas:
 		if not InputMap.has_action(acao):
