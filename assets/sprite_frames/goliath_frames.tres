@@ -1,0 +1,36 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/goliath_1.png" id="1_d4ejc"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/goliath_hurt_0.png" id="2_p2n3e"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/goliath_hurt_1.png" id="3_8c3bs"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/goliath_0.png" id="4_pdwwk"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_d4ejc")
+}],
+"loop": 1,
+"name": &"fire",
+"speed": 2.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_p2n3e")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_8c3bs")
+}],
+"loop": 0,
+"name": &"hurt",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("4_pdwwk")
+}],
+"loop": 1,
+"name": &"idle",
+"speed": 2.0
+}]

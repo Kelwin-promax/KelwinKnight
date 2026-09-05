@@ -1,0 +1,49 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/shaman_attack_2.png" id="1_ft3ln"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/shaman_attack_1.png" id="2_gnmi1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/shaman_0.png" id="3_6hnn1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/shaman_1.png" id="4_8rgl8"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/shaman_2.png" id="5_56f4t"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/shaman_attack_0.png" id="6_xvpm5"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_ft3ln")
+}],
+"loop": 0,
+"name": &"follow_through",
+"speed": 3.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_gnmi1")
+}],
+"loop": 0,
+"name": &"impact",
+"speed": 3.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_6hnn1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_8rgl8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_56f4t")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("6_xvpm5")
+}],
+"loop": 0,
+"name": &"windup",
+"speed": 3.0
+}]

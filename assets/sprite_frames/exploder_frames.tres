@@ -1,0 +1,31 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/exploder_2.png" id="1_j7y6b"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/exploder_3.png" id="2_1qmp7"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/exploder_0.png" id="3_ptwjv"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/exploder_1.png" id="4_qsv3b"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_j7y6b")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_1qmp7")
+}],
+"loop": 1,
+"name": &"prime",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_ptwjv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_qsv3b")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 4.0
+}]

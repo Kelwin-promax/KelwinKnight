@@ -1,0 +1,31 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/harpy_2.png" id="1_vy4cs"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/harpy_3.png" id="2_p6ugx"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/harpy_0.png" id="3_swfo3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_frames/harpy_1.png" id="4_524om"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_vy4cs")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_p6ugx")
+}],
+"loop": 1,
+"name": &"dive",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_swfo3")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_524om")
+}],
+"loop": 1,
+"name": &"fly",
+"speed": 6.0
+}]

@@ -1,0 +1,71 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" uid="uid://cx6r0r1uqv3f7" path="res://scenes/Player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/bosses/Goliath.tscn" id="2_boss"]
+[ext_resource type="PackedScene" path="res://scenes/platforms/SolidPlatform.tscn" id="3_solid"]
+[ext_resource type="PackedScene" path="res://scenes/platforms/MovingPlatform.tscn" id="4_moving"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/pillar.png" id="5_pillar"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/chain.png" id="6_chain"]
+
+[node name="GoliathArena" type="Node2D"]
+
+[node name="Background" type="ParallaxBackground" parent="."]
+
+[node name="FarLayer" type="ParallaxLayer" parent="Background"]
+motion_scale = Vector2(0.2, 0.12)
+
+[node name="Pillar1" type="Sprite2D" parent="Background/FarLayer"]
+modulate = Color(0.3, 0.25, 0.28, 1)
+position = Vector2(150, 560)
+scale = Vector2(2.4, 2.4)
+texture = ExtResource("5_pillar")
+offset = Vector2(0, -59.5)
+
+[node name="Pillar2" type="Sprite2D" parent="Background/FarLayer"]
+modulate = Color(0.26, 0.2, 0.24, 1)
+position = Vector2(1900, 560)
+scale = Vector2(2.4, 2.4)
+texture = ExtResource("5_pillar")
+offset = Vector2(0, -59.5)
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="Floor" parent="Platforms" instance=ExtResource("3_solid")]
+position = Vector2(1024, 660)
+size = Vector2(2048, 128)
+
+[node name="LiftLeft" parent="Platforms" instance=ExtResource("4_moving")]
+position = Vector2(500, 480)
+travel = Vector2(0, -140)
+speed = 60.0
+
+[node name="LiftRight" parent="Platforms" instance=ExtResource("4_moving")]
+position = Vector2(1548, 480)
+travel = Vector2(0, -140)
+speed = 60.0
+
+[node name="Actors" type="Node2D" parent="."]
+z_index = 1
+
+[node name="Player" parent="Actors" instance=ExtResource("1_player")]
+position = Vector2(260, 500)
+
+[node name="Boss" parent="Actors" instance=ExtResource("2_boss")]
+position = Vector2(1500, 500)
+
+[node name="Foreground" type="Node2D" parent="."]
+z_index = 10
+
+[node name="Chain1" type="Sprite2D" parent="Foreground"]
+modulate = Color(0.25, 0.2, 0.22, 1)
+position = Vector2(700, 50)
+scale = Vector2(2.0, 2.0)
+texture = ExtResource("6_chain")
+offset = Vector2(0, 47)
+
+[node name="Chain2" type="Sprite2D" parent="Foreground"]
+modulate = Color(0.22, 0.18, 0.2, 1)
+position = Vector2(1350, 40)
+scale = Vector2(2.3, 2.3)
+texture = ExtResource("6_chain")
+offset = Vector2(0, 47)

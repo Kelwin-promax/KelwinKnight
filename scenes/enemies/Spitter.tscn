@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemies/Spitter.gd" id="1_spitter"]
+[ext_resource type="SpriteFrames" path="res://assets/sprite_frames/spitter_frames.tres" id="2_frames"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_spitter"]
+size = Vector2(110, 130)
+
+[node name="Spitter" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_spitter")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -65)
+scale = Vector2(2.5, 2.5)
+sprite_frames = ExtResource("2_frames")
+animation = "idle"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -30)
+shape = SubResource("RectangleShape2D_spitter")

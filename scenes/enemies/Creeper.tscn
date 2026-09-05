@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemies/Creeper.gd" id="1_creeper"]
+[ext_resource type="SpriteFrames" path="res://assets/sprite_frames/crawler_frames.tres" id="2_frames"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_creeper"]
+size = Vector2(96, 60)
+
+[node name="Creeper" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_creeper")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -30)
+scale = Vector2(2.5, 2.5)
+sprite_frames = ExtResource("2_frames")
+animation = "crawl"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -10)
+shape = SubResource("RectangleShape2D_creeper")

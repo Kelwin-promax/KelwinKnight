@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monochrome Metroidvania</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: monospace;
+        }
+        canvas {
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            image-rendering: pixelated; /* Crucial for sharp monochrome look */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+    
+    <script>
+        // -------------------------------------------------------------
+        // SPRITE AND ASSET CONFIGURATION
+        // Adjust these coordinates based on your exact JPG dimensions
+        // -------------------------------------------------------------
+        const SpriteConfig = {
+            Player: { 
+                width: 64, height: 64,
+                animations: {
+                    idle: { x: 0, y: 0 },
+                    walk: { x: 64, y: 0 },
+                    jump: { x: 128, y: 0 },
+                    fall: { x: 192, y: 0 },
+                    wallslide: { x: 256, y: 0 },
+                    attack: { x: 320, y: 0 },
+                    dash: { x: 384, y: 0 }
+                }
+            },
+            Enemy: {
+                width: 64, height: 64,
+                types: {
+                    crawler: { x: 0, y: 0 },
+                    flyer: { x: 64, y: 0 }
+                }
+            },
+            Tiles: {
+                width: 64, height: 64,
+                types: {
+                    solid: { x: 0, y: 0 },
+                    fragile: { x: 64, y: 0 },
+                    hazard: { x: 128, y: 0 }
+                }
+            },
+            Background: {
+                // Assuming backgrounds are stacked vertically in the spritesheet
+                width: 960, height: 540,
+                levels: [
+                    { x: 0, y: 0 },       // Level 1
+                    { x: 0, y: 540 },     // Level 2
+                    { x: 0, y: 1080 },    // Level 3
+                    { x: 0, y: 1620 },    // Level 4
+                    { x: 0, y: 2160 }     // Level 5
+                ]
+            }
+        };
+
+        // -------------------------------------------------------------
+        // ASSET MANAGER
+        // -------------------------------------------------------------
+        class Assets {
+            static images = {};
+            static loaded = 0;
+            static total = 0;
+
+            static load(sources, callback) {
+                this.total = Object.keys(sources).length;
+                if (this.total === 0) return callback();
+
+                for (let key in sources) {
+                    let img = new Image();
+                    img.onload = () => {
+                        this.loaded++;
+                        if (this.loaded === this.total) callback();
+                    };
+                    img.onerror = () => {
+                        console.error(`Failed to load image: ${sources[key]}`);
+                        this.loaded++;
+                        if (this.loaded === this.total) callback();
+                    };
+                    img.src = sources[key];
+                    this.images[key] = img;
+                }
+            }
+
+            static get(key) {
+                return this.images[key];
+            }
+        }
+
+        // -------------------------------------------------------------
+        // INPUT MANAGER
+        // -------------------------------------------------------------
+        class Input {
+            constructor() {
+                this.keys = {};
+                this.previousKeys = {};
+
+                window.addEventListener('keydown', (e) => this.keys[e.code] = true);
+                window.addEventListener('keyup', (e) => this.keys[e.code] = false);
+            }
+            update() { this.previousKeys = { ...this.keys }; }
+            isDown(code) { return this.keys[code] === true; }
+            isPressed(code) { return this.keys[code] && !this.previousKeys[code]; }
+        }
+
+        // -------------------------------------------------------------
+        // PHYSICS ENGINE
+        // -------------------------------------------------------------
+        class Physics {
+            static checkAABB(a, b) {
+                return a.x < b.x + b.width && a.x + a.width > b.x &&
+                       a.y < b.y + b.height && a.y + a.height > b.y;
+            }
+
+            static resolveCollision(entity, platforms) {
+                entity.isGrounded = false;
+                entity.touchingWallLeft = false;
+                entity.touchingWallRight = false;
+
+                // Horizontal Collision
+                entity.x += entity.vx;
+                for (let p of platforms) {
+                    if (this.checkAABB(entity, p)) {
+                        if (entity.vx > 0) {
+                            entity.x = p.x - entity.width;
+                            entity.vx = 0;
+                            entity.touchingWallRight = true;
+                        } else if (entity.vx < 0) {
+                            entity.x = p.x + p.width;
+                            entity.vx = 0;
+                            entity.touchingWallLeft = true;
+                        }
+                    }
+                }
+
+                // Vertical Collision
+                entity.y += entity.vy;
+                for (let p of platforms) {
+                    if (this.checkAABB(entity, p)) {
+                        if (entity.vy > 0) {
+                            entity.y = p.y - entity.height;
+                            entity.vy = 0;
+                            entity.isGrounded = true;
+                        } else if (entity.vy < 0) {
+                            entity.y = p.y + p.height;
+                            entity.vy = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        // -------------------------------------------------------------
+        // CAMERA SYSTEM
+        // -------------------------------------------------------------
+        class Camera {
+            constructor(width, height) {
+                this.x = 0; this.y = 0;
+                this.width = width; this.height = height;
+                this.minX = 0; this.minY = 0;
+                this.maxX = 10000; this.maxY = 10000;
+                this.smoothing = 0.1;
+            }
+
+            setBounds(maxX, maxY) {
+                this.maxX = maxX;
+                this.maxY = maxY;
+            }
+
+            follow(target) {
+                const targetX = target.x + target.width / 2 - this.width / 2;
+                const targetY = target.y + target.height / 2 - this.height / 2;
+
+                this.x += (targetX - this.x) * this.smoothing;
+                this.y += (targetY - this.y) * this.smoothing;
+
+                // Clamp to level bounds
+                this.x = Math.max(this.minX, Math.min(this.x, this.maxX - this.width));
+                this.y = Math.max(this.minY, Math.min(this.y, this.maxY - this.height));
+            }
+
+            apply(ctx) {
+                ctx.translate(-Math.floor(this.x), -Math.floor(this.y));
+            }
+        }
+
+        // -------------------------------------------------------------
+        // ENTITIES
+        // -------------------------------------------------------------
+        class Entity {
+            constructor(x, y, width, height) {
+                this.x = x; this.y = y;
+                this.width = width; this.height = height;
+                this.vx = 0; this.vy = 0;
+                this.facingRight = true;
+                this.state = 'idle';
+            }
+        }
+
+        class Player extends Entity {
+            constructor(x, y) {
+                super(x, y, 32, 64); // Strict hitboxes decoupled from rendering sprite size
+                this.speed = 220;
+                this.jumpForce = -450;
+                this.gravity = 1000;
+                this.maxFallSpeed = 600;
+                this.wallSlideSpeed = 80;
+                
+                this.dashSpeed = 600;
+                this.dashDuration = 0.15;
+                this.dashTimer = 0;
+                this.isDashing = false;
+                this.canDash = true;
+                
+                this.isAttacking = false;
+                this.attackDuration = 0.25;
+                this.attackTimer = 0;
+                this.health = 100;
+            }
+
+            update(dt, input, platforms) {
+                if (this.isDashing) {
+                    this.dashTimer -= dt;
+                    this.vy = 0;
+                    this.vx = this.facingRight ? this.dashSpeed : -this.dashSpeed;
+                    if (this.dashTimer <= 0) {
+                        this.isDashing = false;
+                        this.vx = 0;
+                    }
+                } else if (this.isAttacking) {
+                    this.attackTimer -= dt;
+                    this.vx = 0; 
+                    this.vy += this.gravity * dt;
+                    if (this.attackTimer <= 0) this.isAttacking = false;
+                } else {
+                    this.vx = 0;
+                    if (input.isDown('ArrowLeft') || input.isDown('KeyA')) {
+                        this.vx = -this.speed;
+                        this.facingRight = false;
+                    }
+                    if (input.isDown('ArrowRight') || input.isDown('KeyD')) {
+                        this.vx = this.speed;
+                        this.facingRight = true;
+                    }
+
+                    if (input.isPressed('ShiftLeft') && this.canDash) {
+                        this.isDashing = true;
+                        this.dashTimer = this.dashDuration;
+                        this.canDash = false;
+                    }
+
+                    const isWallSliding = (this.touchingWallLeft && this.vx < 0) || 
+                                          (this.touchingWallRight && this.vx > 0);
+                    
+                    if (isWallSliding && this.vy > 0) {
+                        this.vy = this.wallSlideSpeed;
+                    } else {
+                        this.vy += this.gravity * dt;
+                    }
+
+                    if (input.isPressed('Space') || input.isPressed('ArrowUp') || input.isPressed('KeyW')) {
+                        if (this.isGrounded) {
+                            this.vy = this.jumpForce;
+                        } else if (isWallSliding) {
+                            this.vy = this.jumpForce;
+                            this.vx = this.touchingWallLeft ? this.speed : -this.speed;
+                            this.facingRight = this.touchingWallLeft;
+                        }
+                    }
+                    
+                    if (input.isPressed('KeyZ') || input.isPressed('KeyJ')) {
+                        this.isAttacking = true;
+                        this.attackTimer = this.attackDuration;
+                    }
+                    this.vy = Math.min(this.vy, this.maxFallSpeed);
+                }
+
+                Physics.resolveCollision(this, platforms);
+                if (this.isGrounded) this.canDash = true;
+
+                // Set Animation State
+                if (this.isDashing) this.state = 'dash';
+                else if (this.isAttacking) this.state = 'attack';
+                else if (!this.isGrounded) {
+                    if (this.touchingWallLeft || this.touchingWallRight) this.state = 'wallslide';
+                    else if (this.vy < 0) this.state = 'jump';
+                    else this.state = 'fall';
+                } else if (Math.abs(this.vx) > 0) this.state = 'walk';
+                else this.state = 'idle';
+            }
+
+            render(ctx) {
+                const img = Assets.get('player');
+                const cfg = SpriteConfig.Player;
+                
+                ctx.save();
+                
+                // We draw the sprite slightly larger/offset than the AABB hitbox if needed
+                // For now, center the sprite on the hitbox
+                let drawX = this.x + (this.width / 2) - (cfg.width / 2);
+                let drawY = this.y + (this.height / 2) - (cfg.height / 2);
+                
+                if (!this.facingRight) {
+                    ctx.translate(this.x * 2 + this.width, 0); // Precise horizontal flip on entity center
+                    ctx.scale(-1, 1);
+                }
+                
+                if (img && img.complete) {
+                    const anim = cfg.animations[this.state] || cfg.animations.idle;
+                    ctx.drawImage(
+                        img, 
+                        anim.x, anim.y, cfg.width, cfg.height, // Source exact frame
+                        drawX, drawY, cfg.width, cfg.height    // Destination exact bounds
+                    );
+                } else {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(this.facingRight ? this.x + this.width - 6 : this.x + 2, this.y + 6, 4, 4);
+                }
+                ctx.restore();
+            }
+        }
+
+        class Enemy extends Entity {
+            constructor(x, y, type) {
+                super(x, y, 48, 48);
+                this.type = type;
+                this.speed = type === 'flyer' ? 100 : 50;
+                this.health = 30;
+                this.patrolStart = x;
+                this.patrolRange = 150;
+                this.gravity = type === 'flyer' ? 0 : 900;
+                this.vx = this.speed;
+            }
+
+            update(dt, platforms) {
+                if (this.type === 'crawler') {
+                    this.vy += this.gravity * dt;
+                    if (this.x > this.patrolStart + this.patrolRange) this.vx = -this.speed;
+                    else if (this.x < this.patrolStart - this.patrolRange) this.vx = this.speed;
+
+                    Physics.resolveCollision(this, platforms);
+                    
+                    if (this.touchingWallLeft) this.vx = this.speed;
+                    if (this.touchingWallRight) this.vx = -this.speed;
+                    this.facingRight = this.vx > 0;
+                } else if (this.type === 'flyer') {
+                    this.y += Math.sin(Date.now() / 200) * 0.5;
+                    if (this.x > this.patrolStart + this.patrolRange) this.vx = -this.speed;
+                    else if (this.x < this.patrolStart - this.patrolRange) this.vx = this.speed;
+                    this.x += this.vx * dt;
+                    this.facingRight = this.vx > 0;
+                }
+            }
+
+            render(ctx) {
+                const img = Assets.get('enemy');
+                const cfg = SpriteConfig.Enemy;
+                
+                ctx.save();
+                let drawX = this.x + (this.width / 2) - (cfg.width / 2);
+                let drawY = this.y + (this.height / 2) - (cfg.height / 2);
+
+                if (!this.facingRight) {
+                    ctx.translate(this.x * 2 + this.width, 0);
+                    ctx.scale(-1, 1);
+                }
+
+                if (img && img.complete) {
+                    const t = cfg.types[this.type] || cfg.types.crawler;
+                    ctx.drawImage(
+                        img, 
+                        t.x, t.y, cfg.width, cfg.height,
+                        drawX, drawY, cfg.width, cfg.height
+                    );
+                } else {
+                    ctx.fillStyle = this.type === 'flyer' ? '#ccc' : '#888';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+                ctx.restore();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // LEVEL MANAGEMENT
+        // -------------------------------------------------------------
+        const LevelsData = [
+            {
+                name: "The Overgrown Tunnels",
+                width: 40, height: 25,
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1],
+                    [1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,1,1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+                    [1,1,0,0,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,1,0,0,0,1],
+                    [1,1,1,5,5,5,1,1,1,1,1,5,5,1,1,1,1,5,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            }
+        ];
+
+        class Level {
+            constructor(levelIndex) {
+                this.index = levelIndex;
+                const data = LevelsData[levelIndex];
+                this.name = data.name;
+                this.tileSize = 48; // Scaled up tiles for better visibility
+                this.width = data.grid[0].length * this.tileSize;
+                this.height = data.grid.length * this.tileSize;
+                this.platforms = [];
+                this.enemies = [];
+                
+                // Parse Grid
+                for (let y = 0; y < data.grid.length; y++) {
+                    for (let x = 0; x < data.grid[y].length; x++) {
+                        const cell = data.grid[y][x];
+                        const px = x * this.tileSize;
+                        const py = y * this.tileSize;
+                        if (cell === 1) this.platforms.push({ x: px, y: py, width: this.tileSize, height: this.tileSize, type: 'solid' });
+                        else if (cell === 2) this.platforms.push({ x: px, y: py, width: this.tileSize, height: this.tileSize, type: 'fragile' });
+                        else if (cell === 3) this.enemies.push(new Enemy(px, py, 'crawler'));
+                        else if (cell === 4) this.enemies.push(new Enemy(px, py, 'flyer'));
+                        else if (cell === 5) this.platforms.push({ x: px, y: py + (this.tileSize/2), width: this.tileSize, height: this.tileSize/2, type: 'hazard' });
+                    }
+                }
+            }
+
+            render(ctx, camera) {
+                const tileImg = Assets.get('tiles');
+                const cfgTile = SpriteConfig.Tiles;
+
+                // 1. CLEAR CANVAS STRICTLY FIRST
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                // 3. APPLY CAMERA TRANSFORM FOR WORLD
+                ctx.save();
+                camera.apply(ctx);
+
+                // 4. DRAW PLATFORMS
+                for (let p of this.platforms) {
+                    if (tileImg && tileImg.complete) {
+                        const t = cfgTile.types[p.type] || cfgTile.types.solid;
+                        ctx.drawImage(
+                            tileImg,
+                            t.x, t.y, cfgTile.width, cfgTile.height, // Source strict slice
+                            p.x, p.y, p.width, p.height              // Dest bounds
+                        );
+                    } else {
+                        // Monochrome Fallback
+                        if (p.type === 'solid') ctx.fillStyle = '#fff';
+                        else if (p.type === 'fragile') ctx.fillStyle = '#888';
+                        else if (p.type === 'hazard') ctx.fillStyle = '#333';
+                        ctx.fillRect(p.x, p.y, p.width, p.height);
+                    }
+                }
+
+                // 5. DRAW ENEMIES
+                for (let e of this.enemies) {
+                    e.render(ctx);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // MAIN GAME ENGINE
+        // -------------------------------------------------------------
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // Keep pixel art sharp
+
+        const input = new Input();
+        const camera = new Camera(canvas.width, canvas.height);
+        
+        let currentLevelIndex = 0;
+        let level = new Level(currentLevelIndex);
+        let player = new Player(64, 64);
+        
+        camera.setBounds(level.width, level.height);
+
+        let lastTime = performance.now();
+
+        function update(dt) {
+            player.update(dt, input, level.platforms);
+            camera.follow(player);
+            for (let enemy of level.enemies) {
+                enemy.update(dt, level.platforms);
+            }
+            input.update();
+        }
+
+        function renderHUD() {
+            // Solid dark background bar for UI to prevent clutter
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, canvas.width, 50);
+            
+            // Bottom bar
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px monospace';
+            
+            // Top HUD
+            ctx.fillText(`♥ HEALTH: ${player.health}`, 20, 30);
+            ctx.fillText(`LOCATION: ${level.name}`, canvas.width / 2 - 100, 30);
+            
+            // Bottom HUD
+            ctx.font = '14px monospace';
+            ctx.fillText('CONTROLS: [ARROWS] Move  [SPACE] Jump  [Z] Attack  [SHIFT] Dash', 20, canvas.height - 15);
+        }
+
+        function gameLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+
+            update(dt);
+            level.render(ctx, camera); // Renders BG, World, Enemies
+            
+            // Render Player (Camera transform must be applied)
+            ctx.save();
+            camera.apply(ctx);
+            player.render(ctx);
+            ctx.restore();
+
+            renderHUD(); // Render UI on top of everything without camera transform
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // INIT
+        const imageSources = {
+            player: 'assets/sprites/Player.jpeg',
+            enemy: 'assets/sprites/Enemies Spritesheet.jpg',
+            tiles: 'assets/sprites/Stage Elements & Platforms.jpg'
+        };
+
+        Assets.load(imageSources, () => {
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>

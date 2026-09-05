@@ -1,0 +1,49 @@
+[gd_scene load_steps=6 format=3 uid="uid://cx6r0r1uqv3f7"]
+
+[ext_resource type="Script" path="res://scripts/Player.gd" id="1_playr"]
+[ext_resource type="SpriteFrames" path="res://assets/sprite_frames/player_frames.tres" id="2_frames"]
+[ext_resource type="Script" path="res://scripts/AnimationManager.gd" id="3_animmgr"]
+[ext_resource type="Shader" path="res://assets/shaders/flash.gdshader" id="4_flash"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flash"]
+shader = ExtResource("4_flash")
+shader_parameter/flash_amount = 0.0
+shader_parameter/flash_color = Color(1, 1, 1, 1)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(38, 112)
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_playr")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+material = SubResource("ShaderMaterial_flash")
+position = Vector2(0, -40)
+scale = Vector2(0.9, 0.9)
+sprite_frames = ExtResource("2_frames")
+animation = "idle"
+
+[node name="AnimationManager" type="Node" parent="."]
+script = ExtResource("3_animmgr")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_player")
+
+[node name="LanternLight" type="PointLight2D" parent="."]
+position = Vector2(0, -40)
+enabled = false
+energy = 1.1
+texture_scale = 3.2
+color = Color(1, 0.92, 0.75, 1)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position_smoothing_enabled = true
+position_smoothing_speed = 6.0
+drag_horizontal_enabled = true
+drag_vertical_enabled = true
+drag_left_margin = 0.35
+drag_right_margin = 0.35
+drag_top_margin = 0.3
+drag_bottom_margin = 0.3

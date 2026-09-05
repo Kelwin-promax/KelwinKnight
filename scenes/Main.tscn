@@ -1,6 +1,59 @@
-[gd_scene load_steps=2 format=3 uid="uid://ckelwinknight0"]
+[gd_scene load_steps=4 format=3 uid="uid://d1w8xbcf6l2yy"]
 
-[ext_resource type="Script" path="res://scripts/world/World.gd" id="1_world"]
+[ext_resource type="Script" path="res://scripts/world/Main.gd" id="1_main"]
+[ext_resource type="Shader" path="res://assets/shaders/fog.gdshader" id="2_fog"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fog"]
+shader = ExtResource("2_fog")
+shader_parameter/fog_color = Color(0.06, 0.07, 0.09, 1)
+shader_parameter/fog_density = 0.3
+shader_parameter/vignette_strength = 1.15
+shader_parameter/vignette_softness = 0.65
+shader_parameter/drift_speed = 0.015
+shader_parameter/fog_scale = 3.0
 
 [node name="Main" type="Node2D"]
-script = ExtResource("1_world")
+script = ExtResource("1_main")
+
+[node name="LevelHost" type="Node2D" parent="."]
+
+[node name="Atmosphere" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="Fog" type="ColorRect" parent="Atmosphere"]
+material = SubResource("ShaderMaterial_fog")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="FadeLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="Fade" type="ColorRect" parent="FadeLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+mouse_filter = 2
+
+[node name="VictoryLayer" type="CanvasLayer" parent="."]
+layer = 11
+
+[node name="VictoryLabel" type="Label" parent="VictoryLayer"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -60.0
+offset_right = 400.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "The Goliath falls. The child is free.
+
+THE END"
+horizontal_alignment = 1
+vertical_alignment = 1

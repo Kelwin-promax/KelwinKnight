@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemies/BruteShaman.gd" id="1_bruteshaman"]
+[ext_resource type="SpriteFrames" path="res://assets/sprite_frames/shaman_frames.tres" id="2_frames"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bruteshaman"]
+size = Vector2(150, 170)
+
+[node name="BruteShaman" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_bruteshaman")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -85)
+scale = Vector2(3.8, 3.8)
+sprite_frames = ExtResource("2_frames")
+animation = "walk"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -45)
+shape = SubResource("RectangleShape2D_bruteshaman")
