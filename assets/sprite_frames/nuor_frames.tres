@@ -1,0 +1,139 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/beam_0.png" id="1_beam_0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/beam_1.png" id="2_beam_1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/idle_0.png" id="3_idle_0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/kick_0.png" id="4_kick_0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/kick_1.png" id="5_kick_1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/kick_2.png" id="6_kick_2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/punch_0.png" id="7_punch_0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/punch_1.png" id="8_punch_1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/punch_2.png" id="9_punch_2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/slam_0.png" id="10_slam_0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/slam_1.png" id="11_slam_1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/slam_2.png" id="12_slam_2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/slam_3.png" id="13_slam_3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/slam_4.png" id="14_slam_4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_0.png" id="15_walk_0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_1.png" id="16_walk_1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_2.png" id="17_walk_2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_3.png" id="18_walk_3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_4.png" id="19_walk_4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_5.png" id="20_walk_5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_6.png" id="21_walk_6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nuor_frames/walk_7.png" id="22_walk_7"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_beam_0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("2_beam_1")
+}],
+"loop": 0,
+"name": &"beam",
+"speed": 3.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_idle_0")
+}],
+"loop": 1,
+"name": &"idle",
+"speed": 2.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("4_kick_0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("5_kick_1")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("6_kick_2")
+}],
+"loop": 0,
+"name": &"kick",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("7_punch_0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("8_punch_1")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("9_punch_2")
+}],
+"loop": 0,
+"name": &"punch",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("10_slam_0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("11_slam_1")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("12_slam_2")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("13_slam_3")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("14_slam_4")
+}],
+"loop": 0,
+"name": &"slam",
+"speed": 7.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("15_walk_0")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("16_walk_1")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("17_walk_2")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("18_walk_3")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("19_walk_4")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("20_walk_5")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("21_walk_6")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("22_walk_7")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 9.0
+}]

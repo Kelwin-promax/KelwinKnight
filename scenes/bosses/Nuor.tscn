@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/bosses/Nuor.gd" id="1_nuor"]
+[ext_resource type="SpriteFrames" path="res://assets/sprite_frames/nuor_frames.tres" id="2_frames"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nuor"]
+size = Vector2(140, 280)
+
+[node name="Nuor" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_nuor")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -161)
+scale = Vector2(2.2, 2.2)
+sprite_frames = ExtResource("2_frames")
+animation = "idle"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -140)
+shape = SubResource("RectangleShape2D_nuor")
+
+[node name="Beam" type="Line2D" parent="."]
+position = Vector2(0, -150)
+width = 26.0
+default_color = Color(1, 0.92, 0.66, 0.9)
+visible = false

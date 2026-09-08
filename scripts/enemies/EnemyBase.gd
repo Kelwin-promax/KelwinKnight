@@ -89,6 +89,13 @@ func _on_ready() -> void:
 	pass
 
 func _physics_process(delta: float) -> void:
+	# O nivel anterior so e' liberado no fim do frame, entao um inimigo que nasce
+	# durante a troca pega o jogador VELHO em _ready e fica com a referencia morta
+	# para sempre -- sem alvo, ele nunca sai do lugar. Reatar quando a referencia
+	# perde a validade custa nada e resolve.
+	if player == null or not is_instance_valid(player):
+		player = get_tree().get_first_node_in_group("player")
+
 	time_alive += delta
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
 	_hurt_timer = maxf(_hurt_timer - delta, 0.0)

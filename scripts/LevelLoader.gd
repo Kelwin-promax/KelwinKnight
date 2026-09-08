@@ -13,8 +13,9 @@ const LEVEL_PATHS := {
 	4: "res://scenes/levels/Level4.tscn",
 	5: "res://scenes/levels/Level5.tscn",
 	6: "res://scenes/bosses/GoliathArena.tscn",
+	7: "res://scenes/bosses/NuorArena.tscn",
 }
-const FINAL_LEVEL_ID := 6
+const FINAL_LEVEL_ID := 7
 
 var current_level_id: int = 0
 var current_level_node: Node = null

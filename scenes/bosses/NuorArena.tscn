@@ -1,0 +1,111 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" uid="uid://cx6r0r1uqv3f7" path="res://scenes/Player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/bosses/Nuor.tscn" id="2_boss"]
+[ext_resource type="PackedScene" path="res://scenes/platforms/SolidPlatform.tscn" id="3_solid"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/pillar.png" id="4_pillar"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/statue_0.png" id="5_statue"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/statue_1.png" id="6_statue2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/chain.png" id="7_chain"]
+[ext_resource type="Texture2D" path="res://assets/sprites/stage/debris_1.png" id="8_debris"]
+
+[node name="NuorArena" type="Node2D"]
+
+[node name="Darkness" type="CanvasModulate" parent="."]
+color = Color(0.66, 0.53, 0.44, 1)
+
+[node name="Background" type="ParallaxBackground" parent="."]
+
+[node name="FarLayer" type="ParallaxLayer" parent="Background"]
+motion_scale = Vector2(0.16, 0.09)
+
+[node name="Statue1" type="Sprite2D" parent="Background/FarLayer"]
+modulate = Color(0.33, 0.25, 0.21, 1)
+position = Vector2(560, 470)
+scale = Vector2(3.4, 3.4)
+texture = ExtResource("5_statue")
+offset = Vector2(0, -52.5)
+
+[node name="Statue2" type="Sprite2D" parent="Background/FarLayer"]
+modulate = Color(0.3, 0.23, 0.19, 1)
+position = Vector2(1780, 470)
+scale = Vector2(3.4, 3.4)
+texture = ExtResource("6_statue2")
+offset = Vector2(0, -46)
+
+[node name="MidLayer" type="ParallaxLayer" parent="Background"]
+motion_scale = Vector2(0.42, 0.26)
+
+[node name="Pillar1" type="Sprite2D" parent="Background/MidLayer"]
+modulate = Color(0.46, 0.36, 0.29, 1)
+position = Vector2(880, 540)
+scale = Vector2(2.8, 2.8)
+texture = ExtResource("4_pillar")
+offset = Vector2(0, -59.5)
+
+[node name="Pillar2" type="Sprite2D" parent="Background/MidLayer"]
+modulate = Color(0.42, 0.33, 0.27, 1)
+position = Vector2(1500, 540)
+scale = Vector2(2.8, 2.8)
+texture = ExtResource("4_pillar")
+offset = Vector2(0, -59.5)
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="Floor" parent="Platforms" instance=ExtResource("3_solid")]
+position = Vector2(1200, 680)
+size = Vector2(2600, 140)
+
+[node name="WallLeft" parent="Platforms" instance=ExtResource("3_solid")]
+position = Vector2(60, 360)
+size = Vector2(120, 520)
+
+[node name="WallRight" parent="Platforms" instance=ExtResource("3_solid")]
+position = Vector2(2340, 360)
+size = Vector2(120, 520)
+
+[node name="LedgeLeft" parent="Platforms" instance=ExtResource("3_solid")]
+position = Vector2(200, 520)
+size = Vector2(160, 28)
+
+[node name="LedgeRight" parent="Platforms" instance=ExtResource("3_solid")]
+position = Vector2(2200, 520)
+size = Vector2(160, 28)
+
+[node name="Rubble1" type="Sprite2D" parent="Platforms"]
+modulate = Color(0.58, 0.46, 0.37, 1)
+position = Vector2(760, 588)
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("8_debris")
+
+[node name="Rubble2" type="Sprite2D" parent="Platforms"]
+modulate = Color(0.52, 0.41, 0.34, 1)
+position = Vector2(1680, 590)
+scale = Vector2(1.4, 1.4)
+texture = ExtResource("8_debris")
+
+[node name="Actors" type="Node2D" parent="."]
+z_index = 1
+
+[node name="Player" parent="Actors" instance=ExtResource("1_player")]
+position = Vector2(230, 420)
+
+[node name="Boss" parent="Actors" instance=ExtResource("2_boss")]
+position = Vector2(1820, 500)
+
+[node name="Foreground" type="Node2D" parent="."]
+z_index = 10
+
+[node name="Chain1" type="Sprite2D" parent="Foreground"]
+modulate = Color(0.25, 0.19, 0.17, 1)
+position = Vector2(700, 55)
+scale = Vector2(2.2, 2.2)
+texture = ExtResource("7_chain")
+offset = Vector2(0, 47)
+
+[node name="Chain2" type="Sprite2D" parent="Foreground"]
+modulate = Color(0.22, 0.17, 0.15, 1)
+position = Vector2(1620, 40)
+scale = Vector2(2.5, 2.5)
+texture = ExtResource("7_chain")
+offset = Vector2(0, 47)
